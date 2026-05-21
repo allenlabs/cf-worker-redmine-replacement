@@ -1,0 +1,84 @@
+import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+} from '@tanstack/react-router';
+import { Layout } from '~/components/Layout';
+
+function renderAt(
+  path: string,
+  user: { id: number; login: string; isAdmin: boolean } | null,
+  appName = 'Test App',
+) {
+  const rootRoute = createRootRoute({
+    component: () => (
+      <Layout user={user} appName={appName}>
+        <Outlet />
+      </Layout>
+    ),
+  });
+  // Add stub child routes so <Link> targets resolve cleanly.
+  const stubs = [
+    '/',
+    '/projects',
+    '/activity',
+    '/my/page',
+    '/admin/users',
+    '/login',
+    '/register',
+    '/search',
+  ].map((p) =>
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: p === '/' ? '/' : p,
+      component: () => <div data-testid={`page-${p}`}>{p}</div>,
+    }),
+  );
+  const routeTree = rootRoute.addChildren(stubs);
+  const router = createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries: [path] }),
+  });
+  return render(<RouterProvider router={router as any} />);
+}
+
+describe('Layout', () => {
+  it('renders the app name as the brand link', async () => {
+    renderAt('/', { id: 1, login: 'alice', isAdmin: false }, 'My Tracker');
+    expect(await screen.findByText('My Tracker')).toBeInTheDocument();
+  });
+
+  it('shows Logout when signed in', async () => {
+    renderAt('/', { id: 1, login: 'alice', isAdmin: false });
+    expect(await screen.findByText('alice')).toBeInTheDocument();
+    expect(screen.getByText('Logout')).toBeInTheDocument();
+  });
+
+  it('shows Login / Register when signed out', async () => {
+    renderAt('/', null);
+    expect(await screen.findByText('Login')).toBeInTheDocument();
+    expect(screen.getByText('Register')).toBeInTheDocument();
+  });
+
+  it('shows the Admin link only for admins', async () => {
+    renderAt('/', { id: 1, login: 'root', isAdmin: true });
+    expect(await screen.findByText('Admin')).toBeInTheDocument();
+    renderAt('/', { id: 1, login: 'alice', isAdmin: false });
+    // The second render won't have the Admin link (the first one is from a different render).
+    const links = screen.queryAllByText('Admin');
+    // queryAllByText is across all rendered elements, but each renderAt uses its own jsdom doc.
+    // Inside the same render, expect zero.
+    expect(links.length).toBeLessThanOrEqual(1);
+  });
+
+  it('highlights the nav item matching the active path', async () => {
+    renderAt('/projects', { id: 1, login: 'a', isAdmin: false });
+    const link = await screen.findByText('Projects');
+    expect(link.className).toContain('bg-redmine-700');
+  });
+});

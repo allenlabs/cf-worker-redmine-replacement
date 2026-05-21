@@ -1,6 +1,8 @@
-import { desc, eq, and } from 'drizzle-orm';
+import { createServerFn } from '@tanstack/react-start';
+import { desc, eq } from 'drizzle-orm';
+import { type DB } from '~/db/client';
 import { activities, projects, users } from '~/db/schema';
-import { getDb, getEnv } from './auth';
+import { getDb } from './auth';
 
 type Kind =
   | 'issue_created'
@@ -11,15 +13,16 @@ type Kind =
   | 'time_logged'
   | 'project_created';
 
-export async function logActivity(input: {
+export interface LogActivityInput {
   projectId: number | null;
   userId: number;
   kind: Kind;
   refId?: number | null;
   title: string;
   body?: string;
-}): Promise<void> {
-  const db = getDb(getEnv());
+}
+
+export async function logActivityImpl(db: DB, input: LogActivityInput): Promise<void> {
   await db.insert(activities).values({
     projectId: input.projectId ?? null,
     userId: input.userId,
@@ -43,11 +46,10 @@ export interface ActivityRow {
   userLogin: string;
 }
 
-export async function listActivities(opts: {
-  projectId?: number;
-  limit?: number;
-}): Promise<ActivityRow[]> {
-  const db = getDb(getEnv());
+export async function listActivitiesImpl(
+  db: DB,
+  opts: { projectId?: number; limit?: number } = {},
+): Promise<ActivityRow[]> {
   const where = opts.projectId !== undefined ? eq(activities.projectId, opts.projectId) : undefined;
   const rows = await db
     .select({
@@ -69,4 +71,15 @@ export async function listActivities(opts: {
     .orderBy(desc(activities.createdAt))
     .limit(opts.limit ?? 50);
   return rows as ActivityRow[];
+}
+
+// Legacy named exports — kept for routes that imported them previously.
+export async function logActivity(input: LogActivityInput): Promise<void> {
+  return logActivityImpl(getDb(), input);
+}
+
+export async function listActivities(
+  opts: { projectId?: number; limit?: number } = {},
+): Promise<ActivityRow[]> {
+  return listActivitiesImpl(getDb(), opts);
 }

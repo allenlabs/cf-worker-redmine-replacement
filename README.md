@@ -1,5 +1,7 @@
 # cf-worker-redmine-replacement
 
+[![test](https://github.com/allenlabs/cf-worker-redmine-replacement/actions/workflows/test.yml/badge.svg)](https://github.com/allenlabs/cf-worker-redmine-replacement/actions/workflows/test.yml)
+
 A self-hostable, Redmine-style project / issue management app that runs entirely on
 **Cloudflare Workers**, built with **TanStack Start** (SSR + file-based routing) and
 **TanStack Router**, backed by **Cloudflare D1** (SQLite), **R2** (file attachments),
@@ -164,6 +166,29 @@ Inspired by Redmine. Each role has a JSON `permissions` array; see
 helper enforces them on every mutating server function.
 
 Admins (users with `admin = 1`) bypass all per-project checks.
+
+## Tests
+
+```bash
+npm run test            # one-shot vitest
+npm run test:watch      # interactive
+npm run test:coverage   # with v8 coverage report + thresholds (HTML in coverage/)
+```
+
+Layout:
+
+```
+tests/
+├── _setup/      # in-memory D1 (better-sqlite3) + KV/R2 fakes + jsdom setup
+├── lib/         # format, permissions
+├── server/      # auth, projects, issues, members, versions, categories,
+│                # time-entries, wiki, attachments, activities, search,
+│                # password, session, markdown, github-oauth
+└── components/  # Layout, ProjectSidebar, badges, Markdown
+```
+
+Coverage thresholds are configured in [vitest.config.ts](vitest.config.ts).
+See [CLAUDE.md](CLAUDE.md) for the contract on how tests must accompany changes.
 
 ## Notes / known limitations
 

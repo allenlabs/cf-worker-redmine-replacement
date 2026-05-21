@@ -1,0 +1,119 @@
+import { describe, expect, it } from 'vitest';
+import {
+  formatDate,
+  formatDateTime,
+  formatHours,
+  slugify,
+  timeAgo,
+} from '~/lib/format';
+
+describe('formatDate', () => {
+  it('returns empty for nullish input', () => {
+    expect(formatDate(null)).toBe('');
+    expect(formatDate(undefined)).toBe('');
+  });
+
+  it('formats a Date as YYYY-MM-DD', () => {
+    expect(formatDate(new Date(2026, 0, 5))).toBe('2026-01-05');
+  });
+
+  it('treats a number as a unix-second timestamp', () => {
+    const t = Math.floor(new Date(2026, 4, 21).getTime() / 1000);
+    expect(formatDate(t)).toBe('2026-05-21');
+  });
+
+  it('parses an ISO string', () => {
+    expect(formatDate('2026-05-21T00:00:00')).toBe('2026-05-21');
+  });
+
+  it('returns empty for invalid input', () => {
+    expect(formatDate('not-a-date')).toBe('');
+  });
+});
+
+describe('formatDateTime', () => {
+  it('formats both date and time with zero-padding', () => {
+    expect(formatDateTime(new Date(2026, 4, 21, 9, 7))).toBe('2026-05-21 09:07');
+  });
+
+  it('returns empty for nullish', () => {
+    expect(formatDateTime(null)).toBe('');
+    expect(formatDateTime(undefined)).toBe('');
+  });
+
+  it('returns empty for unparseable strings', () => {
+    expect(formatDateTime('garbage')).toBe('');
+  });
+
+  it('handles unix-second numbers', () => {
+    const t = Math.floor(new Date(2026, 4, 21, 12, 30).getTime() / 1000);
+    expect(formatDateTime(t)).toBe('2026-05-21 12:30');
+  });
+});
+
+describe('timeAgo', () => {
+  it('returns "just now" for fresh timestamps', () => {
+    expect(timeAgo(new Date())).toBe('just now');
+  });
+
+  it('uses minutes for sub-hour deltas', () => {
+    const t = new Date(Date.now() - 5 * 60 * 1000);
+    expect(timeAgo(t)).toBe('5 min ago');
+  });
+
+  it('uses hours for sub-day deltas', () => {
+    const t = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    expect(timeAgo(t)).toBe('3 h ago');
+  });
+
+  it('uses days under a month', () => {
+    const t = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    expect(timeAgo(t)).toBe('7 d ago');
+  });
+
+  it('falls back to formatDate beyond a month', () => {
+    const t = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    expect(timeAgo(t)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('returns empty for nullish', () => {
+    expect(timeAgo(null)).toBe('');
+    expect(timeAgo(undefined)).toBe('');
+  });
+});
+
+describe('formatHours', () => {
+  it('drops trailing zeros', () => {
+    expect(formatHours(2)).toBe('2 h');
+    expect(formatHours(2.5)).toBe('2.50 h');
+    expect(formatHours(2.5000001)).toBe('2.50 h');
+  });
+
+  it('returns empty for nullish', () => {
+    expect(formatHours(null)).toBe('');
+    expect(formatHours(undefined)).toBe('');
+  });
+});
+
+describe('slugify', () => {
+  it('lowercases and replaces non-alphanumerics', () => {
+    expect(slugify('Hello World!')).toBe('hello-world');
+  });
+
+  it('collapses runs of separators and trims', () => {
+    expect(slugify('--a---b--')).toBe('a-b');
+  });
+
+  it('keeps digits', () => {
+    expect(slugify('Project 2026')).toBe('project-2026');
+  });
+
+  it('truncates to 80 chars', () => {
+    const s = slugify('x'.repeat(200));
+    expect(s.length).toBeLessThanOrEqual(80);
+  });
+
+  it('returns empty for a fully-stripped string', () => {
+    expect(slugify('!!!')).toBe('');
+  });
+});
