@@ -1,0 +1,35 @@
+name = "cf-worker-redmine-replacement"
+main = ".output/server/index.mjs"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+assets = { directory = "./.output/public", binding = "ASSETS" }
+
+# D1 database for application data
+# Replace database_id with the one you get from `wrangler d1 create redmine`
+[[d1_databases]]
+binding = "DB"
+database_name = "redmine"
+database_id = "REPLACE_ME_AFTER_wrangler_d1_create_redmine"
+migrations_dir = "drizzle"
+
+# KV namespace for session blacklist (logout) and short-lived caches
+[[kv_namespaces]]
+binding = "SESSION_KV"
+id = "REPLACE_ME_AFTER_wrangler_kv_namespace_create"
+
+# R2 bucket for issue/wiki attachments
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "cf-redmine-files"
+
+# Secrets — set via `wrangler secret put <NAME>`
+#   JWT_SECRET                 (required)
+#   GITHUB_OAUTH_CLIENT_ID     (optional, for GitHub login)
+#   GITHUB_OAUTH_CLIENT_SECRET (optional, for GitHub login)
+#   PUBLIC_BASE_URL            (e.g. https://redmine.example.com)
+
+[vars]
+APP_NAME = "CF Redmine"
+ALLOW_REGISTRATION = "true"
+DEFAULT_LANGUAGE = "en"
