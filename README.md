@@ -1,7 +1,5 @@
 # cf-worker-redmine-replacement
 
-[![test](https://github.com/allenlabs/cf-worker-redmine-replacement/actions/workflows/test.yml/badge.svg)](https://github.com/allenlabs/cf-worker-redmine-replacement/actions/workflows/test.yml)
-
 A self-hostable, Redmine-style project / issue management app that runs entirely on
 **Cloudflare Workers**, built with **TanStack Start** (SSR + file-based routing) and
 **TanStack Router**, backed by **Cloudflare D1** (SQLite), **R2** (file attachments),
@@ -10,6 +8,22 @@ and **KV** (session revocation).
 > Deploy a single Worker, get projects · issues · time tracking · gantt · roadmap ·
 > wiki · attachments · members · permissions · activity feed · search — all without
 > running a server.
+
+---
+
+## Status
+
+| Surface | Status |
+|---|---|
+| Schema + Drizzle + migrations | ✅ stable |
+| Server-function **impls** (auth, projects, issues, members, versions, categories, time-entries, wiki, attachments, activities, search) | ✅ unit-tested at 100% (lines/statements/functions/branches) |
+| React components (`app/components/*`) | ✅ jsdom-tested |
+| Wrangler integration (D1 / KV / R2 / WebCrypto / JOSE / cookies) | ✅ exercised end-to-end inside Miniflare via `tests/workers/` |
+| `createServerFn` wrappers + routes | ⚠️ written against TanStack Start 1.168 but the **SSR runtime wiring (`npm run dev` / `build` / `deploy`) has not yet been verified end-to-end**.  The wrappers are excluded from unit coverage and only proven via the wrangler smoke tests today.  Finishing the SSR wiring is its own follow-up commit. |
+
+If you only want to consume the server-fn impls (e.g. wire them into Hono on a
+Worker, or use them in scripts), you can do so today — they are pure functions
+of `(db, ...)`.
 
 ---
 
@@ -42,21 +56,21 @@ handles it), no S3 to wire up (R2 is a binding).
 
 ## Tech stack
 
-- **Edge runtime:** Cloudflare Workers (module worker)
-- **Framework:** TanStack Start (server functions + SSR) + TanStack Router (file-based, type-safe)
-- **UI:** React 18, Tailwind CSS
-- **DB:** Cloudflare D1 + Drizzle ORM
+- **Edge runtime:** Cloudflare Workers (module worker, `nodejs_compat`)
+- **Framework:** TanStack Start 1.168 + TanStack Router 1.170, file-based & type-safe
+- **UI:** React 19, Tailwind CSS
+- **DB:** Cloudflare D1 + Drizzle ORM 0.45
 - **Files:** Cloudflare R2
-- **Sessions:** signed JWT (jose) in HttpOnly cookies; revocation via KV
-- **Markdown:** marked + lightweight HTML sanitiser
-- **Build:** Vinxi + Vite, deployed via wrangler
+- **Sessions:** signed JWT (jose 6) in HttpOnly cookies; revocation via KV
+- **Markdown:** marked 18 + lightweight HTML sanitiser
+- **Build:** Vite 8 + `@cloudflare/vite-plugin`, deployed via wrangler
 
 ---
 
 ## Getting started
 
 ### 0. Prerequisites
-- Node ≥ 20
+- Node ≥ 20 (developed on Node 26)
 - A Cloudflare account with Workers, D1, R2 and KV enabled
 - `npx wrangler login`
 
@@ -65,60 +79,54 @@ handles it), no S3 to wire up (R2 is a binding).
 ```bash
 git clone https://github.com/allenlabs/cf-worker-redmine-replacement.git
 cd cf-worker-redmine-replacement
-npm install
+npm install         # .npmrc sets legacy-peer-deps for the TanStack Start beta range
 ```
 
-### 2. Create Cloudflare resources
+### 2. Run the test suite
 
 ```bash
-# D1 database
-wrangler d1 create redmine
-# copy the printed database_id into wrangler.toml
-
-# KV namespace for revoked sessions
-wrangler kv namespace create SESSION_KV
-# copy the printed id into wrangler.toml
-
-# R2 bucket
-wrangler r2 bucket create cf-redmine-files
+npm run test            # all 3 projects (node + jsdom + workers / miniflare)
+npm run test:coverage   # node + jsdom with v8 coverage + 100% thresholds
+npm run test:workers    # workers project only (miniflare D1/KV/R2)
 ```
 
-### 3. Local secrets
+Current run: **198 tests** across 22 files, **100% lines / statements /
+functions / branches**.
+
+### 3. Create Cloudflare resources
+
+```bash
+wrangler d1 create redmine
+wrangler kv namespace create SESSION_KV
+wrangler r2 bucket create cf-redmine-files
+# copy the printed ids into wrangler.toml
+```
+
+### 4. Local secrets
 
 ```bash
 cp .dev.vars.example .dev.vars
-# edit .dev.vars and at minimum set JWT_SECRET
+# at minimum set JWT_SECRET
 ```
 
-### 4. Migrate + seed
+### 5. Migrate + seed
 
 ```bash
 npm run db:migrate:local
 npm run db:seed:local
 ```
 
-### 5. Dev
+### 6. Dev / Deploy
+
+> ⚠️ **Not yet verified end-to-end.**  The SSR runtime entry (`app/client.tsx`,
+> `app/ssr.tsx`) targets TanStack Start 1.168 but has not been booted in dev
+> mode by the maintainer.  Use [`npm run test:workers`](#2-run-the-test-suite)
+> to validate Cloudflare bindings + auth flow today.
 
 ```bash
-npm run dev
-# open http://localhost:3000
-```
-
-The first account you register becomes the **admin** automatically.
-
-### 6. Deploy
-
-```bash
-# set production secrets
-wrangler secret put JWT_SECRET
-wrangler secret put PUBLIC_BASE_URL
-# optional, only if you want GitHub login
-wrangler secret put GITHUB_OAUTH_CLIENT_ID
-wrangler secret put GITHUB_OAUTH_CLIENT_SECRET
-
-npm run db:migrate
-npm run db:seed
-npm run deploy
+npm run dev             # vite dev (TODO: verify)
+npm run build           # vite build (TODO: verify)
+npm run deploy          # build + wrangler deploy (TODO: verify)
 ```
 
 ---
@@ -139,22 +147,32 @@ verified email. Subsequent logins match by GitHub ID first, then by email.
 
 ```
 .
-├── app.config.ts              # TanStack Start + Vite + Nitro Cloudflare preset
+├── vite.config.ts             # Vite + @cloudflare/vite-plugin + tanstackStart
+├── vitest.config.ts           # 3 projects: node + jsdom + workers
 ├── wrangler.toml              # D1 / KV / R2 / vars / asset binding
 ├── drizzle/
 │   ├── 0001_initial.sql       # full schema migration
 │   └── seed.sql               # default trackers / statuses / priorities / roles
 ├── app/
-│   ├── client.tsx             # hydrate
-│   ├── ssr.tsx                # Nitro entry
+│   ├── client.tsx             # client hydrate entry
+│   ├── ssr.tsx                # cloudflare-module SSR entry
 │   ├── router.tsx             # TanStack Router + react-query bridge
-│   ├── routeTree.gen.ts       # (generated)
+│   ├── test-worker.ts         # tiny Worker for wrangler integration tests
 │   ├── styles/app.css         # Tailwind + Redmine-inspired tokens
 │   ├── lib/                   # env types, formatters, permissions enum
 │   ├── db/                    # Drizzle schema + D1 client factory
-│   ├── server/                # createServerFn handlers (auth, projects, issues, …)
+│   ├── server/                # server-fn impls + thin createServerFn wrappers
+│   │   ├── auth.ts            #   pure impls (testable without TanStack Start)
+│   │   ├── auth-runtime.ts    #   SSR-aware helpers (getEnv, requireUser, …)
+│   │   └── *.ts               #   one file per topic
 │   ├── components/            # Layout, ProjectSidebar, badges, Markdown
-│   └── routes/                # file-based routes
+│   └── routes/                # file-based routes (routeTree.gen.ts auto-generated)
+├── tests/
+│   ├── _setup/                # in-memory D1 (better-sqlite3), KV/R2 fakes, jsdom setup
+│   ├── lib/                   # format, permissions
+│   ├── server/                # *Impl integration tests
+│   ├── components/            # React component tests
+│   └── workers/               # SELF.fetch against test-worker inside Miniflare
 └── public/                    # static assets (favicon)
 ```
 
@@ -167,43 +185,13 @@ helper enforces them on every mutating server function.
 
 Admins (users with `admin = 1`) bypass all per-project checks.
 
-## Tests
-
-```bash
-npm run test            # all 3 projects (node + jsdom + workers / miniflare)
-npm run test:watch      # interactive
-npm run test:coverage   # node + jsdom with v8 coverage + thresholds
-npm run test:workers    # workers project only (miniflare D1/KV/R2)
-```
-
-Currently: **202 tests** across 22 files, **100%** lines / statements /
-functions, **96.88%** branches.
-
-Layout:
-
-```
-tests/
-├── _setup/      # makeTestDb() (better-sqlite3) + KV/R2 fakes + jsdom setup
-├── lib/         # format, permissions
-├── server/      # auth, projects, issues, members, versions, categories,
-│                # time-entries, wiki, attachments, activities, search,
-│                # password, session, markdown, github-oauth
-├── components/  # Layout, ProjectSidebar, badges, Markdown
-└── workers/     # smoke tests via SELF.fetch against app/test-worker.ts
-                # in a real Miniflare runtime (D1 + KV + R2 + WebCrypto + JOSE)
-```
-
-Coverage thresholds are configured in [vitest.config.ts](vitest.config.ts).
-See [CLAUDE.md](CLAUDE.md) for the contract on how tests must accompany changes.
-
 ## Notes / known limitations
 
-- Single-Worker deploy assumes D1's eventual-consistency is fine for your team
-  size; for very large installs consider sharding by project.
 - The Gantt is read-only SVG (no drag-resize) — keeps the bundle tiny.
 - Email notifications are intentionally omitted (no SMTP on the edge); plug in
   Cloudflare Email Routing or Postmark/Resend via a queue if you need them.
 - Custom fields are not implemented yet (would slot in via a small extra table).
+- See `Status` table above for what's verified vs still on the TODO list.
 
 ## License
 

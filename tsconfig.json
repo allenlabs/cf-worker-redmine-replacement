@@ -15,10 +15,10 @@
     "skipLibCheck": true,
     "allowJs": false,
     "noEmit": true,
-    "types": ["@cloudflare/workers-types", "vinxi/types/client"],
+    "types": ["@cloudflare/workers-types", "vite/client"],
     "paths": {
       "~/*": ["./app/*"]
     }
   },
-  "include": ["app/**/*", "drizzle.config.ts", "app.config.ts"]
+  "include": ["app/**/*", "tests/**/*", "drizzle.config.ts", "vite.config.ts", "vitest.config.ts"]
 }

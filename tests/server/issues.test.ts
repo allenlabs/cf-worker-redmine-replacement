@@ -154,6 +154,62 @@ describe('getIssueImpl', () => {
     expect(r.journals[0]!.details[0]!.prop_key).toBe('status');
   });
 
+  it('returns assignee / category / version / parent when all are set', async () => {
+    const { issueCategories, versions } = await import('~/db/schema');
+    const [cat] = await db
+      .insert(issueCategories)
+      .values({ projectId, name: 'Backend' })
+      .returning();
+    const [ver] = await db
+      .insert(versions)
+      .values({ projectId, name: 'v1.0' })
+      .returning();
+    const parent = await seedIssue({ subject: 'parent' });
+    const child = await seedIssue({ subject: 'child' });
+    await db
+      .update(issues)
+      .set({
+        assignedToId: alice.id,
+        categoryId: cat.id,
+        fixedVersionId: ver.id,
+        parentId: parent.id,
+      })
+      .where(eq(issues.id, child.id));
+
+    const r = await getIssueImpl(db, child.id);
+    expect(r.assignee?.id).toBe(alice.id);
+    expect(r.category?.id).toBe(cat.id);
+    expect(r.version?.id).toBe(ver.id);
+    expect(r.parent?.id).toBe(parent.id);
+  });
+
+  it('records a journal detail when transitioning a previously-null field', async () => {
+    const i = await seedIssue();
+    // before: assignedToId is null; we set it to alice
+    await updateIssueImpl(db, alice, {
+      id: i.id,
+      notes: '',
+      changes: { assignedToId: alice.id },
+    });
+    const r = await getIssueImpl(db, i.id);
+    const detail = r.journals[0]!.details.find((d) => d.prop_key === 'assigned_to');
+    expect(detail?.oldValue).toBeNull();
+    expect(detail?.newValue).toBe(String(alice.id));
+
+    // and back to null
+    await updateIssueImpl(db, alice, {
+      id: i.id,
+      notes: '',
+      changes: { assignedToId: null },
+    });
+    const r2 = await getIssueImpl(db, i.id);
+    const last = r2.journals[r2.journals.length - 1]!.details.find(
+      (d) => d.prop_key === 'assigned_to',
+    );
+    expect(last?.oldValue).toBe(String(alice.id));
+    expect(last?.newValue).toBeNull();
+  });
+
   it('throws when issue is missing', async () => {
     await expect(getIssueImpl(db, 99999)).rejects.toThrow(/not found/);
   });

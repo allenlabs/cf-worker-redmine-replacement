@@ -45,13 +45,13 @@ export async function listTimeEntriesImpl(db: DB, opts: ListTimeEntriesInput) {
     .where(and(...conds))
     .orderBy(desc(timeEntries.spentOn), desc(timeEntries.createdAt));
 
-  const totalRow = await db
+  // `coalesce(sum(...), 0)` always returns exactly one row, so the result is
+  // safe to read without optional-chaining gymnastics.
+  const [{ total }] = await db
     .select({ total: sql<number>`coalesce(sum(${timeEntries.hours}), 0)` })
     .from(timeEntries)
     .where(and(...conds));
-
-  const total = Number(totalRow[0]?.total ?? 0);
-  return { entries: rows, total };
+  return { entries: rows, total: Number(total) };
 }
 
 export const createTimeEntrySchema = z.object({

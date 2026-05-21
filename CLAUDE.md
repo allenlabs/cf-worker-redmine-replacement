@@ -91,7 +91,7 @@ npm run db:seed:local     # apply seed data to local D1
 ## Coverage targets
 
 Configured in `vitest.config.ts` under `test.coverage.thresholds`.  The
-defaults today: **lines / statements / functions = 100%**, **branches ≥ 95%**.
+defaults today: **lines / statements / functions / branches = 100%**.
 
 The `createServerFn` wrappers and `auth-runtime.ts` are wrapped in
 `/* v8 ignore start/stop */` because they need the TanStack Start SSR
@@ -132,6 +132,8 @@ exercises it via `SELF.fetch()` against `app/test-worker.ts`.
 - Don't disable a failing test to "fix later" without flagging it via TaskCreate
   and a `// FIXME(test):` comment in the test file.
 - Don't commit `routeTree.gen.ts`, `.dev.vars`, or anything in `.wrangler/`.
+- Don't add GitHub Actions / CI workflows.  CI is intentionally off to keep
+  the repo zero-cost; coverage is enforced locally via `npm run test:coverage`.
 
 ---
 
