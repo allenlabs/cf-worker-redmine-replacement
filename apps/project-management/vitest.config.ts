@@ -4,27 +4,32 @@ import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
 import path from 'node:path';
 
 const ROOT = path.resolve(__dirname);
+const WEB_APP = path.resolve(ROOT, './workers/web/app');
 
 export default defineConfig({
   resolve: {
-    alias: { '~': path.resolve(ROOT, './app') },
+    alias: { '~': WEB_APP },
   },
   test: {
     globals: true,
     projects: [
       {
         plugins: [react()],
-        resolve: { alias: { '~': path.resolve(ROOT, './app') } },
+        resolve: { alias: { '~': WEB_APP } },
         test: {
           name: 'node',
           environment: 'node',
-          include: ['tests/lib/**/*.test.ts', 'tests/server/**/*.test.ts'],
+          include: [
+            'tests/lib/**/*.test.ts',
+            'tests/server/**/*.test.ts',
+            'tests/cleanup/**/*.test.ts',
+          ],
           setupFiles: ['./tests/_setup/setup-node.ts'],
         },
       },
       {
         plugins: [react()],
-        resolve: { alias: { '~': path.resolve(ROOT, './app') } },
+        resolve: { alias: { '~': WEB_APP } },
         test: {
           name: 'jsdom',
           environment: 'jsdom',
@@ -35,7 +40,7 @@ export default defineConfig({
       {
         plugins: [
           cloudflareTest({
-            main: './app/test-worker.ts',
+            main: './workers/web/app/test-worker.ts',
             miniflare: {
               compatibilityDate: '2026-01-01',
               compatibilityFlags: ['nodejs_compat'],
@@ -43,7 +48,7 @@ export default defineConfig({
               kvNamespaces: ['SESSION_KV'],
               r2Buckets: ['FILES'],
               bindings: {
-                APP_NAME: 'CF Redmine (test)',
+                APP_NAME: 'Project Management (test)',
                 ALLOW_REGISTRATION: 'true',
                 DEFAULT_LANGUAGE: 'en',
                 JWT_SECRET: 'wrangler-test-secret-do-not-use-anywhere-else-12345',
@@ -54,7 +59,7 @@ export default defineConfig({
             },
           }),
         ],
-        resolve: { alias: { '~': path.resolve(ROOT, './app') } },
+        resolve: { alias: { '~': WEB_APP } },
         test: {
           name: 'workers',
           include: ['tests/workers/**/*.test.ts'],
@@ -64,17 +69,17 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov', 'json-summary'],
-      include: ['app/**/*.{ts,tsx}'],
+      include: ['workers/web/app/**/*.{ts,tsx}'],
       exclude: [
-        'app/routeTree.gen.ts',
-        'app/client.tsx',
-        'app/server.tsx',
-        'app/router.tsx',
-        'app/start.ts',
-        'app/test-worker.ts',
-        'app/lib/env.ts',
-        'app/routes/**',
-        'app/db/**',
+        'workers/web/app/routeTree.gen.ts',
+        'workers/web/app/client.tsx',
+        'workers/web/app/server.tsx',
+        'workers/web/app/router.tsx',
+        'workers/web/app/start.ts',
+        'workers/web/app/test-worker.ts',
+        'workers/web/app/lib/env.ts',
+        'workers/web/app/routes/**',
+        'workers/web/app/db/**',
         '**/*.d.ts',
       ],
       thresholds: {

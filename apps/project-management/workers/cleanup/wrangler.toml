@@ -1,0 +1,26 @@
+name = "pm-cleanup"
+main = "index.ts"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cron-triggered worker that prunes attachments older than ATTACHMENT_TTL_DAYS.
+# Runs daily at 03:30 UTC; the schedule is also evaluated locally by
+# `wrangler dev --test-scheduled` for verification.
+[triggers]
+crons = ["30 3 * * *"]
+
+# Shares the D1 + R2 bindings with `pm-web` (same database_id, same R2 bucket).
+[[d1_databases]]
+binding = "DB"
+database_name = "project_management"
+database_id = "REPLACE_ME_AFTER_wrangler_d1_create_project_management"
+migrations_dir = "../../drizzle"
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "pm-files"
+
+[vars]
+ATTACHMENT_TTL_DAYS = "365"
+# Hard ceiling on rows per run so a stuck job can't melt D1.  Tune as needed.
+CLEANUP_MAX_ROWS = "500"

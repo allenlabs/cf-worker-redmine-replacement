@@ -6,6 +6,21 @@ exactly.**
 
 ---
 
+## What this repo is
+
+A **monorepo of Cloudflare Workers apps**, managed by npm workspaces.  Each
+app under `apps/<name>/` is independently deployable and may ship **multiple
+workers** (SSR, queue consumers, cron jobs, Workflows, …) that share
+bindings (D1 / KV / R2 / Queue / Workflow).
+
+Current apps:
+
+| App | Workers |
+|---|---|
+| `apps/project-management/` | `web` (TanStack Start SSR) + `cleanup` (cron) |
+| `apps/url-shortener/` | one worker (Hono + KV) |
+| `apps/webhook-relay/` | `ingest` + `relay` (Queue consumer + Workflow) |
+
 ## Workflow rules (strictly enforced)
 
 ### 1. Always work on `main`
@@ -33,14 +48,13 @@ Any new feature, refactor, or bug-fix requires a corresponding test change —
 **the user expects this by default**.  Specifically:
 
 - **New feature / new server function / new component** → add unit and/or
-  integration tests in `tests/` mirroring the source path.
+  integration tests in `apps/<app>/tests/` mirroring the source path.
 - **Bug fix** → add a regression test that *fails before the fix and passes
   after*.
-- **Refactor** → existing tests must still pass; add tests for new code paths
-  introduced by the refactor.
-- **Touched a server module?** Re-run `npm run test:coverage` and verify the
-  coverage thresholds in `vitest.config.ts` still pass.  Do not lower the
-  thresholds to make the build green.
+- **Refactor** → existing tests must still pass; add tests for new code paths.
+- **Touched a server module?** Re-run `npm run -w <app-package> test:coverage`
+  and verify the coverage thresholds in that app's `vitest.config.ts` still
+  pass.  Do not lower the thresholds to make the build green.
 
 The only acceptable way to skip tests is for the user to *explicitly* say
 "skip tests" (or equivalent) for that iteration.  If they do, record it in
@@ -52,36 +66,70 @@ auditable.
 ## Quick commands
 
 ```bash
-npm run dev               # local dev (Vite + TanStack Start)
-npm run build             # production build
-npm run deploy            # build + wrangler deploy
-npm run typecheck         # tsc --noEmit
-npm run test              # vitest run — all 3 projects (node / jsdom / workers)
-npm run test:watch        # vitest interactive
-npm run test:coverage     # node + jsdom projects with v8 coverage (enforces thresholds)
-npm run test:workers      # workers project only (miniflare integration)
-npm run db:migrate:local  # apply migrations to local D1
-npm run db:seed:local     # apply seed data to local D1
+# Top-level (npm workspaces fan-out)
+npm install                # installs deps for every app
+npm run test               # run each app's `npm run test`
+npm run test:coverage      # run each app's `npm run test:coverage`
+npm run typecheck          # tsc --noEmit per app
+
+# Per-app shortcuts (defined in root package.json)
+npm run dev:pm             # project-management web worker (vite dev)
+npm run dev:url            # url-shortener
+npm run dev:relay:ingest   # webhook-relay ingest worker
+npm run dev:relay:relay    # webhook-relay relay worker (queue consumer)
+
+# Drop into an app for finer control
+cd apps/project-management
+npm run test:workers       # miniflare integration
+wrangler deploy --config workers/cleanup/wrangler.toml
 ```
 
 ---
 
-## Architecture cheatsheet (so tests stay aligned)
+## Adding a new app
 
-- **Server functions** live in `app/server/<topic>.ts`.  Every wrapper is a
-  thin `createServerFn` shell wrapped in `/* v8 ignore start/stop */` markers,
-  delegating to a pure **`*Impl(deps, input)`** helper exported from the same
-  file.  Add new logic in the impl — the wrapper just collects deps.
-- **`auth.ts` vs `auth-runtime.ts`**: `auth.ts` holds the pure impls
+1. `mkdir apps/<new-app>/` with `package.json` named
+   `@cf-worker-apps/<new-app>` (npm workspace pattern).
+2. Per-worker layout: `apps/<new-app>/workers/<worker>/wrangler.toml`.
+   Multiple workers in one app share bindings by pointing at the same
+   `database_id` / `bucket_name` / queue `name`.
+3. Add `vitest.config.ts` with at minimum a `node` project (pure tests) and
+   a `workers` project using `@cloudflare/vitest-pool-workers` when the app
+   needs real D1/KV/R2 in tests.
+4. Each app's `package.json` declares its own `dev` / `deploy` / `test`
+   scripts; the root `package.json` fans them out via `npm run -w`.
+
+---
+
+## Adding a worker to an existing app
+
+1. `mkdir apps/<app>/workers/<new-worker>/` with `index.ts` + `wrangler.toml`.
+2. Reuse the app's D1/KV/R2 binding IDs in the new `wrangler.toml`.
+3. Add a `deploy:<worker>` script and chain it into the app's `deploy`.
+4. Trigger-specific patterns:
+   - **Cron** → `[triggers] crons = [...]` (see `project-management/workers/cleanup`).
+   - **Queue consumer** → `[[queues.consumers]]` (see `webhook-relay/workers/relay`).
+   - **Workflow** → `[[workflows]]` + class extending `WorkflowEntrypoint`
+     (see `webhook-relay/workers/relay/index.ts`).
+
+---
+
+## Architecture conventions (per-app)
+
+These come from `project-management/` and are the model for new apps.
+
+- **Server functions** live in `app/server/<topic>.ts`.  Every TanStack Start
+  `createServerFn` wrapper is a thin shell wrapped in `/* v8 ignore start/stop */`
+  markers, delegating to a pure **`*Impl(deps, input)`** helper exported from
+  the same file.  Add new logic in the impl — the wrapper just collects deps.
+- **`auth.ts` vs `auth-runtime.server.ts`**: `auth.ts` holds the pure impls
   (`buildAuthContextImpl`, `userFromSessionImpl`, `checkPermission`).
-  `auth-runtime.ts` holds everything that depends on TanStack Start
-  (`getEnv`, `getCurrentUser`, `requirePermission`, …).  Routes import from
-  `~/server/auth-runtime`; the wrangler integration worker stays on pure
-  imports only.
-- **Pure modules** (`app/lib/*`, `app/server/password.ts`,
-  `app/server/session.ts`, `app/server/markdown.ts`,
-  `app/server/github-oauth.ts`) have no Cloudflare-runtime dependencies and
-  must stay at 100% coverage.
+  `auth-runtime.server.ts` holds everything that depends on TanStack Start
+  (`getEnv`, `getCurrentUser`, `requirePermission`, …) and is excluded from
+  client bundles by the `**/*.server.*` import-protection pattern.
+- **Pure modules** (`app/lib/*`, `app/server/password.ts`, `session.ts`,
+  `markdown.ts`, `github-oauth.ts`) have no Cloudflare-runtime dependencies
+  and must stay at 100% coverage.
 - **Components** (`app/components/*.tsx`) are tested under jsdom with
   `@testing-library/react`.
 - **Routes** (`app/routes/*`) are mostly thin loaders/components — they're
@@ -90,40 +138,17 @@ npm run db:seed:local     # apply seed data to local D1
 
 ## Coverage targets
 
-Configured in `vitest.config.ts` under `test.coverage.thresholds`.  The
-defaults today: **lines / statements / functions / branches = 100%**.
+Configured per-app in `apps/<app>/vitest.config.ts` under
+`test.coverage.thresholds`.  Defaults: **lines / statements / functions /
+branches = 100%** for `project-management` and `url-shortener`; relaxed
+slightly for `webhook-relay` (where Queue/Workflow execution paths are
+covered manually).
 
-The `createServerFn` wrappers and `auth-runtime.ts` are wrapped in
+The `createServerFn` wrappers and `auth-runtime.server.ts` are wrapped in
 `/* v8 ignore start/stop */` because they need the TanStack Start SSR
 runtime to execute.  They are **separately covered by the wrangler
 integration tests in `tests/workers/`** running against Miniflare's D1 / KV /
 R2.
-
-If you have a *good* reason a file cannot reach the threshold, add it to
-`coverage.exclude` with a one-line comment justifying the exclusion (e.g.
-generated route tree, SSR entry).  Do **not** lower the global threshold to
-paper over missing tests in the `*Impl` helpers.
-
-## Test layout
-
-```
-tests/
-├── _setup/
-│   ├── setup-node.ts      # vitest globals for the Node environment
-│   ├── setup-jsdom.ts     # jest-dom matchers + jsdom -> Node TextEncoder swap
-│   ├── db.ts              # makeTestDb() — in-memory better-sqlite3 + schema + seed
-│   └── env.ts             # makeTestEnv() — fake D1/R2/KV bindings
-├── lib/                   # pure helpers (node project)
-├── server/                # *Impl integration tests against testDb (node project)
-├── components/            # React component tests (jsdom project)
-└── workers/               # Miniflare integration tests for the workers project
-                          # — exercises real D1 / KV / R2 + cookies via SELF.fetch
-```
-
-When you add a new file under `app/server/foo.ts`, you should normally also
-add `tests/server/foo.test.ts`.  When you touch route or wrapper logic that
-depends on the Cloudflare runtime, add a `tests/workers/*.test.ts` that
-exercises it via `SELF.fetch()` against `app/test-worker.ts`.
 
 ## Don't
 
@@ -131,9 +156,12 @@ exercises it via `SELF.fetch()` against `app/test-worker.ts`.
   tests.
 - Don't disable a failing test to "fix later" without flagging it via TaskCreate
   and a `// FIXME(test):` comment in the test file.
-- Don't commit `routeTree.gen.ts`, `.dev.vars`, or anything in `.wrangler/`.
+- Don't commit `routeTree.gen.ts`, `.dev.vars`, `dist/`, `coverage/`, or
+  anything in `.wrangler/`.
 - Don't add GitHub Actions / CI workflows.  CI is intentionally off to keep
   the repo zero-cost; coverage is enforced locally via `npm run test:coverage`.
+- Don't move workers between apps casually — wrangler binding IDs are bound
+  to the app folder.
 
 ---
 

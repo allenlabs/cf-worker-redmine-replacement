@@ -17,8 +17,13 @@
     "noEmit": true,
     "types": ["@cloudflare/workers-types", "vite/client"],
     "paths": {
-      "~/*": ["./app/*"]
+      "~/*": ["./workers/web/app/*"]
     }
   },
-  "include": ["app/**/*", "tests/**/*", "drizzle.config.ts", "vite.config.ts", "vitest.config.ts"]
+  "include": [
+    "workers/**/*",
+    "tests/**/*",
+    "drizzle.config.ts",
+    "vitest.config.ts"
+  ]
 }

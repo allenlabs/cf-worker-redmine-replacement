@@ -12,7 +12,7 @@ build
 
 # tanstack router generated — recreated by `npx @tanstack/router-cli generate`
 # or by `vite dev` / `vite build`.
-app/routeTree.gen.ts
+**/routeTree.gen.ts
 
 # wrangler / cloudflare
 .wrangler
