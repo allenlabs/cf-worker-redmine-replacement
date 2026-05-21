@@ -1,9 +1,11 @@
 name = "cf-worker-redmine-replacement"
-main = ".output/server/index.mjs"
+main = "app/server.tsx"
 compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat"]
 
-assets = { directory = "./.output/public", binding = "ASSETS" }
+# `npm run build` (vite + @cloudflare/vite-plugin) emits the worker bundle
+# into ./dist/<env>/.  The plugin reads this `main` field as the SSR source.
+assets = { directory = "./dist/client", binding = "ASSETS" }
 
 # D1 database for application data
 # Replace database_id with the one you get from `wrangler d1 create redmine`

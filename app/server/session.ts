@@ -2,7 +2,19 @@ import { SignJWT, jwtVerify } from 'jose';
 import type { Env } from '~/lib/env';
 
 export const SESSION_COOKIE = 'cfr_session';
-const SESSION_DAYS = 14;
+export const SESSION_DAYS = 14;
+export const SESSION_MAX_AGE_SECONDS = SESSION_DAYS * 24 * 60 * 60;
+
+// Cookie options shared by the TanStack Start `setCookie()` API and our
+// `cookieHeader()` raw-string helper.  Lives here so callers don't disagree
+// on attributes.
+export const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: true,
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: SESSION_MAX_AGE_SECONDS,
+};
 
 export interface SessionPayload {
   sub: string; // user id (as string)

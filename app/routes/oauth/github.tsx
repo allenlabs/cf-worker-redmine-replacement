@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { setResponseHeaders } from '@tanstack/react-start/server';
-import { getEnv } from '~/server/auth-runtime';
+import { setCookie } from '@tanstack/react-start/server';
+import { getEnv } from '~/server/auth-runtime.server';
 import { buildAuthorizeUrl, githubConfigured } from '~/server/github-oauth';
 
 const beginOauth = createServerFn({ method: 'GET' }).handler(async () => {
@@ -11,8 +11,12 @@ const beginOauth = createServerFn({ method: 'GET' }).handler(async () => {
   }
   const state = crypto.randomUUID();
   const url = buildAuthorizeUrl(env, state);
-  setResponseHeaders({
-    'set-cookie': `oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`,
+  setCookie('oauth_state', state, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 600,
   });
   return { ok: true as const, url };
 });

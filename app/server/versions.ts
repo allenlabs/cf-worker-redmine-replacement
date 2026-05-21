@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { type DB } from '~/db/client';
 import { issueStatuses, issues, versions } from '~/db/schema';
-import { getDb, requirePermission } from './auth-runtime';
+import { getDb, requirePermission } from './auth-runtime.server';
 
 export interface VersionWithProgress {
   id: number;

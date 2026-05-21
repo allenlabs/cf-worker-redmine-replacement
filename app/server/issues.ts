@@ -18,7 +18,7 @@ import {
 import { ForbiddenError } from '~/lib/permissions';
 import { logActivityImpl } from './activities';
 import { type CurrentUser } from './auth';
-import { buildAuthContext, getDb, getCurrentUser, requirePermission, requireUser } from './auth-runtime';
+import { buildAuthContext, getDb, getCurrentUser, requirePermission, requireUser } from './auth-runtime.server';
 
 const ISSUE_FIELDS = {
   trackerId: 'tracker',

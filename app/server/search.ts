@@ -5,7 +5,7 @@ import { type DB } from '~/db/client';
 import { issues, projects, wikiPages, wikiRevisions, wikis } from '~/db/schema';
 import { type AuthContext } from '~/lib/permissions';
 import { type CurrentUser } from './auth';
-import { buildAuthContext, getCurrentUser, getDb } from './auth-runtime';
+import { buildAuthContext, getCurrentUser, getDb } from './auth-runtime.server';
 
 export interface SearchInput {
   q: string;

@@ -5,7 +5,7 @@ import { type DB } from '~/db/client';
 import { issues, timeEntries, timeEntryActivities, users } from '~/db/schema';
 import { logActivityImpl } from './activities';
 import { type CurrentUser } from './auth';
-import { getDb, requirePermission, requireUser } from './auth-runtime';
+import { getDb, requirePermission, requireUser } from './auth-runtime.server';
 
 export async function listActivitiesImpl(db: DB) {
   return db.query.timeEntryActivities.findMany({ orderBy: timeEntryActivities.position });

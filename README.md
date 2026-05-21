@@ -19,7 +19,8 @@ and **KV** (session revocation).
 | Server-function **impls** (auth, projects, issues, members, versions, categories, time-entries, wiki, attachments, activities, search) | ✅ unit-tested at 100% (lines/statements/functions/branches) |
 | React components (`app/components/*`) | ✅ jsdom-tested |
 | Wrangler integration (D1 / KV / R2 / WebCrypto / JOSE / cookies) | ✅ exercised end-to-end inside Miniflare via `tests/workers/` |
-| `createServerFn` wrappers + routes | ⚠️ written against TanStack Start 1.168 but the **SSR runtime wiring (`npm run dev` / `build` / `deploy`) has not yet been verified end-to-end**.  The wrappers are excluded from unit coverage and only proven via the wrangler smoke tests today.  Finishing the SSR wiring is its own follow-up commit. |
+| `createServerFn` wrappers + routes | ⚠️ Updated for TanStack Start 1.168 (`getRequest`, `setCookie`, `inputValidator`, modern SSR entry shapes, dedicated `auth-runtime.server.ts`).  **Client environment now builds successfully** via `npx vite build`; the **SSR environment build still trips on the start-manifest plugin** (a known follow-up — needs the route manifest input wired correctly). |
+| `npm run dev` / `npm run deploy` | ⚠️ Same blocker — `vite build` finishes the client environment but not the SSR pipeline yet.  Use [`npm run test:workers`](#2-run-the-test-suite) to exercise Cloudflare bindings + auth flow until that's fixed. |
 
 If you only want to consume the server-fn impls (e.g. wire them into Hono on a
 Worker, or use them in scripts), you can do so today — they are pure functions
@@ -80,6 +81,7 @@ handles it), no S3 to wire up (R2 is a binding).
 git clone https://github.com/allenlabs/cf-worker-redmine-replacement.git
 cd cf-worker-redmine-replacement
 npm install         # .npmrc sets legacy-peer-deps for the TanStack Start beta range
+npx @tanstack/router-cli generate   # produces app/routeTree.gen.ts (gitignored)
 ```
 
 ### 2. Run the test suite

@@ -8,7 +8,7 @@ import { createServerFn } from '@tanstack/react-start';
 import type { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Layout } from '~/components/Layout';
-import { getCurrentUser, getEnv } from '~/server/auth-runtime';
+import { getCurrentUser, getEnv } from '~/server/auth-runtime.server';
 import appCss from '~/styles/app.css?url';
 
 const loadRoot = createServerFn({ method: 'GET' }).handler(async () => {

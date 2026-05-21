@@ -1,15 +1,20 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { getWebRequest, setResponseHeaders } from '@tanstack/react-start/server';
-import { getEnv } from '~/server/auth-runtime';
-import { clearCookieHeader, readSessionToken, revokeSession } from '~/server/session';
+import { getRequest, setCookie } from '@tanstack/react-start/server';
+import { getEnv } from '~/server/auth-runtime.server';
+import {
+  SESSION_COOKIE,
+  SESSION_COOKIE_OPTIONS,
+  readSessionToken,
+  revokeSession,
+} from '~/server/session';
 
 const doLogout = createServerFn({ method: 'GET' }).handler(async () => {
   const env = getEnv();
-  const req = getWebRequest();
+  const req = getRequest();
   const token = readSessionToken(req?.headers.get('cookie') ?? null);
   if (token) await revokeSession(env, token);
-  setResponseHeaders({ 'set-cookie': clearCookieHeader() });
+  setCookie(SESSION_COOKIE, '', { ...SESSION_COOKIE_OPTIONS, maxAge: 0 });
   return { ok: true };
 });
 

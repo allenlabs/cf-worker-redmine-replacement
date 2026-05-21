@@ -1,14 +1,18 @@
 import { Link, createFileRoute, redirect, useRouter } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { setResponseHeaders } from '@tanstack/react-start/server';
+import { setCookie } from '@tanstack/react-start/server';
 import { eq, or } from 'drizzle-orm';
 import { useState } from 'react';
 import { z } from 'zod';
 import { users } from '~/db/schema';
-import { getDb, getCurrentUser, getEnv } from '~/server/auth-runtime';
+import { getDb, getCurrentUser, getEnv } from '~/server/auth-runtime.server';
 import { githubConfigured } from '~/server/github-oauth';
 import { verifyPassword } from '~/server/password';
-import { cookieHeader, createSessionToken } from '~/server/session';
+import {
+  SESSION_COOKIE,
+  SESSION_COOKIE_OPTIONS,
+  createSessionToken,
+} from '~/server/session';
 
 const loginPageData = createServerFn({ method: 'GET' }).handler(async () => {
   const env = getEnv();
@@ -39,7 +43,7 @@ const submitLogin = createServerFn({ method: 'POST' })
       login: user.login,
       admin: user.admin,
     });
-    setResponseHeaders({ 'set-cookie': cookieHeader(token) });
+    setCookie(SESSION_COOKIE, token, SESSION_COOKIE_OPTIONS);
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
     return { ok: true as const };
   });

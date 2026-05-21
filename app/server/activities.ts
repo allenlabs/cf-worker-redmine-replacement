@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { desc, eq } from 'drizzle-orm';
 import { type DB } from '~/db/client';
 import { activities, projects, users } from '~/db/schema';
-import { getDb } from './auth-runtime';
+import { getDb } from './auth-runtime.server';
 
 type Kind =
   | 'issue_created'

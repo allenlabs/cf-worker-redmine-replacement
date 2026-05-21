@@ -1,6 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/* Redmine-inspired colour palette + custom utility tokens. */
+@theme {
+  --color-redmine-50: #f1f7fb;
+  --color-redmine-100: #dbeaf3;
+  --color-redmine-200: #bcd6e8;
+  --color-redmine-300: #8ebcd6;
+  --color-redmine-400: #5b9bbd;
+  --color-redmine-500: #3a7fa5;
+  --color-redmine-600: #2f6688;
+  --color-redmine-700: #28526e;
+  --color-redmine-800: #234555;
+  --color-redmine-900: #1f3a47;
+}
 
 @layer base {
   html, body, #app {

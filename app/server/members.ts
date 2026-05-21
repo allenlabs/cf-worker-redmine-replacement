@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { type DB } from '~/db/client';
 import { members, projects, roles, users } from '~/db/schema';
-import { getDb, requirePermission, requireUser } from './auth-runtime';
+import { getDb, requirePermission, requireUser } from './auth-runtime.server';
 
 export async function listMembersImpl(db: DB, projectId: number) {
   return db

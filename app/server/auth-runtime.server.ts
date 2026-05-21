@@ -4,7 +4,7 @@
 // Coverage for this file comes from the wrangler integration tests in
 // tests/workers/ (they exercise the same code paths via real HTTP requests).
 /* v8 ignore start */
-import { getWebRequest } from '@tanstack/react-start/server';
+import { getRequest } from '@tanstack/react-start/server';
 import { type DB, makeDb } from '~/db/client';
 import type { Env } from '~/lib/env';
 import {
@@ -21,7 +21,7 @@ import {
 } from './auth';
 
 export function getEnv(): Env {
-  const req = getWebRequest();
+  const req = getRequest();
   // @ts-expect-error nitro adds cf.env on request
   const env: Env | undefined = req?.cf?.env ?? (globalThis as any).__env__;
   if (!env) {
@@ -36,7 +36,7 @@ export function getDb(env: Env = getEnv()): DB {
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const env = getEnv();
-  const req = getWebRequest();
+  const req = getRequest();
   const cookie = req?.headers.get('cookie') ?? null;
   return userFromSessionImpl(getDb(env), env, cookie);
 }

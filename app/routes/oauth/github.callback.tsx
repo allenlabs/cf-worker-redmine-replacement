@@ -1,12 +1,16 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { getWebRequest, setResponseHeaders } from '@tanstack/react-start/server';
+import { getCookie, getRequest, setCookie } from '@tanstack/react-start/server';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { users } from '~/db/schema';
-import { getDb, getEnv } from '~/server/auth-runtime';
+import { getDb, getEnv } from '~/server/auth-runtime.server';
 import { exchangeCode, fetchProfile } from '~/server/github-oauth';
-import { cookieHeader, createSessionToken } from '~/server/session';
+import {
+  SESSION_COOKIE,
+  SESSION_COOKIE_OPTIONS,
+  createSessionToken,
+} from '~/server/session';
 
 const finishOauth = createServerFn({ method: 'GET' })
   .inputValidator((d: unknown) =>
@@ -14,13 +18,7 @@ const finishOauth = createServerFn({ method: 'GET' })
   )
   .handler(async ({ data }) => {
     const env = getEnv();
-    const req = getWebRequest();
-    const cookie = req?.headers.get('cookie') ?? '';
-    const stateCookie = cookie
-      .split(';')
-      .map((p) => p.trim())
-      .find((p) => p.startsWith('oauth_state='))
-      ?.slice('oauth_state='.length);
+    const stateCookie = getCookie('oauth_state');
     if (!data.state || !stateCookie || data.state !== stateCookie) {
       return { ok: false as const, error: 'Invalid OAuth state.' };
     }
@@ -62,24 +60,32 @@ const finishOauth = createServerFn({ method: 'GET' })
     }
 
     const session = await createSessionToken(env, {
-      sub: String(user.id),
-      login: user.login,
-      admin: user.admin,
+      sub: String(user!.id),
+      login: user!.login,
+      admin: user!.admin,
     });
-    setResponseHeaders({
-      'set-cookie': [
-        cookieHeader(session),
-        // expire the state cookie
-        `oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`,
-      ].join(', '),
+    setCookie(SESSION_COOKIE, session, SESSION_COOKIE_OPTIONS);
+    setCookie('oauth_state', '', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
     });
-    await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
+    await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user!.id));
     return { ok: true as const };
   });
 
+interface GithubCallbackSearch {
+  code: string;
+  state: string | undefined;
+}
+
 export const Route = createFileRoute('/oauth/github/callback')({
-  validateSearch: (s: Record<string, unknown>) =>
-    ({ code: String(s.code ?? ''), state: s.state ? String(s.state) : undefined }),
+  validateSearch: (s: Record<string, unknown>): GithubCallbackSearch => ({
+    code: String(s.code ?? ''),
+    state: s.state ? String(s.state) : undefined,
+  }),
   beforeLoad: async ({ search }) => {
     if (!search.code) throw redirect({ to: '/login' });
     const res = await finishOauth({ data: { code: search.code, state: search.state } });

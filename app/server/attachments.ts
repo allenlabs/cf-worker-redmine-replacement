@@ -3,7 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { type DB } from '~/db/client';
 import { attachments } from '~/db/schema';
-import { getDb, getEnv, requirePermission } from './auth-runtime';
+import { getDb, getEnv, requirePermission } from './auth-runtime.server';
 
 export type ContainerType = 'issue' | 'wiki_page' | 'project' | 'journal';
 

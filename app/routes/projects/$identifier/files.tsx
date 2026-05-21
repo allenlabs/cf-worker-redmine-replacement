@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { createServerFn } from '@tanstack/react-start';
 import { z } from 'zod';
 import { formatDateTime } from '~/lib/format';
-import { requirePermission, requireUser } from '~/server/auth-runtime';
+import { requirePermission, requireUser } from '~/server/auth-runtime.server';
 import { deleteAttachment, listProjectFiles, uploadAttachment } from '~/server/attachments';
 
 const parentRoute = getRouteApi('/projects/$identifier');

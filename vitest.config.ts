@@ -68,8 +68,9 @@ export default defineConfig({
       exclude: [
         'app/routeTree.gen.ts',
         'app/client.tsx',
-        'app/ssr.tsx',
+        'app/server.tsx',
         'app/router.tsx',
+        'app/start.ts',
         'app/test-worker.ts',
         'app/lib/env.ts',
         'app/routes/**',

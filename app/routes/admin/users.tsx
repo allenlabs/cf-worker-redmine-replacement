@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { users } from '~/db/schema';
 import { formatDateTime } from '~/lib/format';
-import { getDb, requireAdmin } from '~/server/auth-runtime';
+import { getDb, requireAdmin } from '~/server/auth-runtime.server';
 
 const loadUsers = createServerFn({ method: 'GET' }).handler(async () => {
   await requireAdmin();

@@ -6,7 +6,7 @@ import { users, wikiPages, wikiRevisions, wikis } from '~/db/schema';
 import { slugify } from '~/lib/format';
 import { logActivityImpl } from './activities';
 import { type CurrentUser } from './auth';
-import { getDb, requirePermission } from './auth-runtime';
+import { getDb, requirePermission } from './auth-runtime.server';
 
 async function getOrCreateWiki(db: DB, projectId: number) {
   let wiki = await db.query.wikis.findFirst({ where: eq(wikis.projectId, projectId) });

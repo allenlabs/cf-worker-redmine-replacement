@@ -13,7 +13,7 @@ export function createRouter() {
     routeTree,
     context: { queryClient, user: null },
     defaultPreload: 'intent',
-    defaultErrorComponent: ({ error }) => (
+    defaultErrorComponent: ({ error }: { error: unknown }) => (
       <div className="p-6 text-red-700">
         <h2 className="font-semibold">Something went wrong</h2>
         <pre className="mt-2 whitespace-pre-wrap text-xs">{String(error)}</pre>
@@ -27,6 +27,9 @@ export function createRouter() {
   });
   return routerWithQueryClient(router, queryClient);
 }
+
+// TanStack Start 1.168 plugin reads `getRouter` from the router entry file.
+export const getRouter = createRouter;
 
 declare module '@tanstack/react-router' {
   interface Register {
