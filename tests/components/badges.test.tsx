@@ -31,26 +31,28 @@ describe('PriorityBadge', () => {
 describe('TrackerBadge', () => {
   it('renders the name with the tracker color and white text', () => {
     render(<TrackerBadge name="Bug" color="#900" />);
-    expect(screen.getByText('Bug')).toHaveStyle({ backgroundColor: '#900', color: 'white' });
+    const el = screen.getByText('Bug');
+    expect(el).toHaveStyle({ 'background-color': 'rgb(153, 0, 0)' });
+    expect(el).toHaveStyle({ color: 'rgb(255, 255, 255)' });
   });
 });
 
 describe('ProgressBar', () => {
   it('clamps below 0', () => {
     const { container } = render(<ProgressBar value={-10} />);
-    const inner = container.querySelector('div > div') as HTMLElement;
+    const inner = container.querySelector('div.h-full') as HTMLElement;
     expect(inner.style.width).toBe('0%');
   });
 
   it('clamps above 100', () => {
     const { container } = render(<ProgressBar value={250} />);
-    const inner = container.querySelector('div > div') as HTMLElement;
+    const inner = container.querySelector('div.h-full') as HTMLElement;
     expect(inner.style.width).toBe('100%');
   });
 
   it('sets exact width for in-range values', () => {
     const { container } = render(<ProgressBar value={42} />);
-    const inner = container.querySelector('div > div') as HTMLElement;
+    const inner = container.querySelector('div.h-full') as HTMLElement;
     expect(inner.style.width).toBe('42%');
   });
 });

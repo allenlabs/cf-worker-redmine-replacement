@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { setResponseHeaders } from '@tanstack/react-start/server';
-import { getEnv } from '~/server/auth';
+import { getEnv } from '~/server/auth-runtime';
 import { buildAuthorizeUrl, githubConfigured } from '~/server/github-oauth';
 
 const beginOauth = createServerFn({ method: 'GET' }).handler(async () => {

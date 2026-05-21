@@ -80,6 +80,16 @@ describe('timeAgo', () => {
     expect(timeAgo(null)).toBe('');
     expect(timeAgo(undefined)).toBe('');
   });
+
+  it('accepts a unix-second number', () => {
+    const t = Math.floor(Date.now() / 1000) - 5 * 60;
+    expect(timeAgo(t)).toBe('5 min ago');
+  });
+
+  it('accepts an ISO-string date', () => {
+    const t = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    expect(timeAgo(t)).toBe('2 h ago');
+  });
 });
 
 describe('formatHours', () => {

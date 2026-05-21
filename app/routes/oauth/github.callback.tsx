@@ -4,12 +4,12 @@ import { getWebRequest, setResponseHeaders } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { users } from '~/db/schema';
-import { getDb, getEnv } from '~/server/auth';
+import { getDb, getEnv } from '~/server/auth-runtime';
 import { exchangeCode, fetchProfile } from '~/server/github-oauth';
 import { cookieHeader, createSessionToken } from '~/server/session';
 
 const finishOauth = createServerFn({ method: 'GET' })
-  .validator((d: unknown) =>
+  .inputValidator((d: unknown) =>
     z.object({ code: z.string(), state: z.string().optional() }).parse(d),
   )
   .handler(async ({ data }) => {

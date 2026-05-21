@@ -60,6 +60,11 @@ describe('visibleProjectIdsImpl', () => {
     });
     expect(ids.sort()).toEqual([publicProjectId, privateProjectId].sort());
   });
+
+  it('falls back to {} when ctx is null but a user is provided', async () => {
+    const ids = await visibleProjectIdsImpl(db, alice, null);
+    expect(ids).toEqual([publicProjectId]);
+  });
 });
 
 describe('searchImpl', () => {

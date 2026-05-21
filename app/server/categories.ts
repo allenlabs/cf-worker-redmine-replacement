@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { type DB } from '~/db/client';
 import { issueCategories } from '~/db/schema';
-import { getDb, requirePermission } from './auth';
+import { getDb, requirePermission } from './auth-runtime';
 
 export async function listCategoriesImpl(db: DB, projectId: number) {
   return db.query.issueCategories.findMany({
@@ -37,21 +37,25 @@ export async function deleteCategoryImpl(db: DB, id: number) {
 }
 
 // ---------- wrappers ----------
+// Exercised by wrangler integration tests in tests/workers/.
+/* v8 ignore start */
 
 export const listCategories = createServerFn({ method: 'GET' })
-  .validator((d: unknown) => z.object({ projectId: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ projectId: z.number() }).parse(d))
   .handler(async ({ data }) => listCategoriesImpl(getDb(), data.projectId));
 
 export const createCategory = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => createCategorySchema.parse(d))
+  .inputValidator((d: unknown) => createCategorySchema.parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'manage_categories');
     return createCategoryImpl(getDb(), data);
   });
 
 export const deleteCategory = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => z.object({ id: z.number(), projectId: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.number(), projectId: z.number() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'manage_categories');
     return deleteCategoryImpl(getDb(), data.id);
   });
+
+/* v8 ignore stop */

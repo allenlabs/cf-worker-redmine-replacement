@@ -22,14 +22,8 @@ import {
   UnauthorizedError,
 } from '~/lib/permissions';
 import { logActivityImpl } from './activities';
-import {
-  buildAuthContext,
-  type CurrentUser,
-  getDb,
-  getCurrentUser,
-  requirePermission,
-  requireUser,
-} from './auth';
+import { type CurrentUser } from './auth';
+import { buildAuthContext, getDb, getCurrentUser, requirePermission, requireUser } from './auth-runtime';
 
 const DEFAULT_MODULES = [
   'issue_tracking',
@@ -209,6 +203,9 @@ export async function deleteProjectImpl(db: DB, id: number): Promise<{ ok: true 
 }
 
 // ---------- TanStack Start wrappers ----------
+// Exercised by wrangler integration tests in tests/workers/.  Unit tests
+// target the *Impl helpers above directly.
+/* v8 ignore start */
 
 export const listProjects = createServerFn({ method: 'GET' }).handler(async () => {
   const me = await getCurrentUser();
@@ -217,7 +214,7 @@ export const listProjects = createServerFn({ method: 'GET' }).handler(async () =
 });
 
 export const getProject = createServerFn({ method: 'GET' })
-  .validator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
   .handler(async ({ data }) => {
     const me = await getCurrentUser();
     const ctx = me ? await buildAuthContext(me.id) : null;
@@ -225,21 +222,21 @@ export const getProject = createServerFn({ method: 'GET' })
   });
 
 export const createProject = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => createProjectSchema.parse(d))
+  .inputValidator((d: unknown) => createProjectSchema.parse(d))
   .handler(async ({ data }) => {
     const user = await requireUser();
     return createProjectImpl(getDb(), user, data);
   });
 
 export const updateProject = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => updateProjectSchema.parse(d))
+  .inputValidator((d: unknown) => updateProjectSchema.parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.id, 'edit_project');
     return updateProjectImpl(getDb(), data);
   });
 
 export const deleteProject = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => z.object({ id: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.number() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.id, 'delete_project').catch(async () => {
       const u = await requireUser();
@@ -249,5 +246,7 @@ export const deleteProject = createServerFn({ method: 'POST' })
   });
 
 export const suggestIdentifier = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => z.object({ name: z.string() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ name: z.string() }).parse(d))
   .handler(async ({ data }) => slugify(data.name));
+
+/* v8 ignore stop */

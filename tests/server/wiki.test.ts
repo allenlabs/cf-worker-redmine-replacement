@@ -37,6 +37,15 @@ describe('wiki impls', () => {
     expect(pages).toEqual([]);
   });
 
+  it('creates a wiki row on-demand for a project that has none', async () => {
+    // wipe the wiki row that insertProject() left behind
+    const { wikis: wikisTable } = await import('~/db/schema');
+    const { eq: eqOp } = await import('drizzle-orm');
+    await db.delete(wikisTable).where(eqOp(wikisTable.projectId, projectId));
+    const { wiki } = await listWikiPagesImpl(db, projectId);
+    expect(wiki.projectId).toBe(projectId);
+  });
+
   it('saveWikiPageImpl creates a new page + first revision', async () => {
     const { page, revision } = await saveWikiPageImpl(db, alice, {
       projectId,
@@ -73,6 +82,20 @@ describe('wiki impls', () => {
     expect(r.page).toBeNull();
     expect(r.revision).toBeNull();
     expect(r.revisions).toEqual([]);
+  });
+
+  it('getWikiPageImpl returns null revision when page has no currentRevisionId', async () => {
+    const { wikiPages, wikis } = await import('~/db/schema');
+    const { eq: eqOp } = await import('drizzle-orm');
+    const wiki = (await db.query.wikis.findFirst({ where: eqOp(wikis.projectId, projectId) }))!;
+    await db.insert(wikiPages).values({
+      wikiId: wiki.id,
+      slug: 'empty',
+      title: 'Empty',
+    });
+    const r = await getWikiPageImpl(db, projectId, 'empty');
+    expect(r.page).not.toBeNull();
+    expect(r.revision).toBeNull();
   });
 
   it('getWikiPageImpl returns full revision history newest first', async () => {

@@ -4,7 +4,7 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { issuePriorities, issueStatuses, issues, projects, trackers, users, watchers } from '~/db/schema';
 import { PriorityBadge, StatusBadge, TrackerBadge } from '~/components/badges';
 import { formatDate, timeAgo } from '~/lib/format';
-import { getCurrentUser, getDb } from '~/server/auth';
+import { getCurrentUser, getDb } from '~/server/auth-runtime';
 import { listActivities } from '~/server/activities';
 
 const loadMyPage = createServerFn({ method: 'GET' }).handler(async () => {

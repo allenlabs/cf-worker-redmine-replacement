@@ -3,7 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { type DB } from '~/db/client';
 import { attachments } from '~/db/schema';
-import { getDb, getEnv, requirePermission } from './auth';
+import { getDb, getEnv, requirePermission } from './auth-runtime';
 
 export type ContainerType = 'issue' | 'wiki_page' | 'project' | 'journal';
 
@@ -100,9 +100,11 @@ export async function streamAttachmentImpl(
 }
 
 // ---------- wrappers ----------
+// Exercised by wrangler integration tests in tests/workers/.
+/* v8 ignore start */
 
 export const listAttachments = createServerFn({ method: 'GET' })
-  .validator((d: unknown) =>
+  .inputValidator((d: unknown) =>
     z
       .object({
         projectId: z.number(),
@@ -117,7 +119,7 @@ export const listAttachments = createServerFn({ method: 'GET' })
   });
 
 export const listProjectFiles = createServerFn({ method: 'GET' })
-  .validator((d: unknown) => z.object({ projectId: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ projectId: z.number() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'view_files');
     return listProjectFilesImpl(getDb(), data.projectId);
@@ -132,8 +134,10 @@ export async function streamAttachment(id: number): Promise<Response> {
 }
 
 export const deleteAttachment = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => z.object({ id: z.number(), projectId: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.number(), projectId: z.number() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'manage_files');
     return deleteAttachmentImpl(getDb(), getEnv().FILES, data.id);
   });
+
+/* v8 ignore stop */

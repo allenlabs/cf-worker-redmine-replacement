@@ -145,6 +145,15 @@ describe('getIssueImpl', () => {
     expect(r.tracker?.name).toBe('Bug');
   });
 
+  it('hydrates journal details for changed-field journals', async () => {
+    const i = await seedIssue();
+    await updateIssueImpl(db, alice, { id: i.id, notes: 'work', changes: { statusId: 2 } });
+    const r = await getIssueImpl(db, i.id);
+    expect(r.journals).toHaveLength(1);
+    expect(r.journals[0]!.details.length).toBeGreaterThan(0);
+    expect(r.journals[0]!.details[0]!.prop_key).toBe('status');
+  });
+
   it('throws when issue is missing', async () => {
     await expect(getIssueImpl(db, 99999)).rejects.toThrow(/not found/);
   });
@@ -219,6 +228,13 @@ describe('watchIssueImpl', () => {
     await watchIssueImpl(db, alice, i.id, true);
     await watchIssueImpl(db, alice, i.id, true);
     expect(await db.query.watchers.findMany({ where: eq(watchers.issueId, i.id) })).toHaveLength(1);
+  });
+
+  it('getIssueImpl returns the watcher list', async () => {
+    const i = await seedIssue();
+    await watchIssueImpl(db, alice, i.id, true);
+    const r = await getIssueImpl(db, i.id);
+    expect(r.watchers).toEqual([alice.id]);
   });
 });
 

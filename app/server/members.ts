@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { type DB } from '~/db/client';
 import { members, projects, roles, users } from '~/db/schema';
-import { getDb, requirePermission, requireUser } from './auth';
+import { getDb, requirePermission, requireUser } from './auth-runtime';
 
 export async function listMembersImpl(db: DB, projectId: number) {
   return db
@@ -67,9 +67,11 @@ export async function changeMemberRoleImpl(
 }
 
 // ---------- wrappers ----------
+// Exercised by wrangler integration tests in tests/workers/.
+/* v8 ignore start */
 
 export const listMembers = createServerFn({ method: 'GET' })
-  .validator((d: unknown) => z.object({ projectId: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ projectId: z.number() }).parse(d))
   .handler(async ({ data }) => listMembersImpl(getDb(), data.projectId));
 
 export const listAllUsers = createServerFn({ method: 'GET' }).handler(async () => {
@@ -83,7 +85,7 @@ export const listRoles = createServerFn({ method: 'GET' }).handler(async () => {
 });
 
 export const addMember = createServerFn({ method: 'POST' })
-  .validator((d: unknown) =>
+  .inputValidator((d: unknown) =>
     z
       .object({ projectId: z.number(), userId: z.number(), roleId: z.number() })
       .parse(d),
@@ -94,14 +96,14 @@ export const addMember = createServerFn({ method: 'POST' })
   });
 
 export const removeMember = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => z.object({ memberId: z.number(), projectId: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ memberId: z.number(), projectId: z.number() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'manage_members');
     return removeMemberImpl(getDb(), data.memberId);
   });
 
 export const changeMemberRole = createServerFn({ method: 'POST' })
-  .validator((d: unknown) =>
+  .inputValidator((d: unknown) =>
     z
       .object({ memberId: z.number(), projectId: z.number(), roleId: z.number() })
       .parse(d),
@@ -110,3 +112,5 @@ export const changeMemberRole = createServerFn({ method: 'POST' })
     await requirePermission(data.projectId, 'manage_members');
     return changeMemberRoleImpl(getDb(), data.memberId, data.roleId);
   });
+
+/* v8 ignore stop */

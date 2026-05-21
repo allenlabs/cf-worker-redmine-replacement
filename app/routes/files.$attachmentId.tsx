@@ -9,10 +9,10 @@ import {
   getCurrentUser,
   getDb,
   getEnv,
-} from '~/server/auth';
+} from '~/server/auth-runtime';
 
 const download = createServerFn({ method: 'GET' })
-  .validator((d: unknown) => z.object({ id: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.number() }).parse(d))
   .handler(async ({ data }) => {
     const env = getEnv();
     const db = getDb(env);

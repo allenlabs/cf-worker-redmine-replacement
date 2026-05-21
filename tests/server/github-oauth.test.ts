@@ -134,6 +134,16 @@ describe('fetchProfile', () => {
     expect(profile.email).toBe('only@example.com');
   });
 
+  it('leaves email null when /user/emails returns an empty array', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 1, login: 'oct', email: null }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response('[]', { status: 200 }));
+    const profile = await fetchProfile('tok');
+    expect(profile.email).toBeFalsy();
+  });
+
   it('leaves email null when /user/emails also fails', async () => {
     fetchMock
       .mockResolvedValueOnce(

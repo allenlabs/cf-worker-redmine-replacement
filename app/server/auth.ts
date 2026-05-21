@@ -1,5 +1,4 @@
 import { eq } from 'drizzle-orm';
-import { getWebRequest } from '@tanstack/react-start/server';
 import { type DB, makeDb } from '~/db/client';
 import { members, roles, users } from '~/db/schema';
 import type { Env } from '~/lib/env';
@@ -76,51 +75,7 @@ export function checkPermission(
   if (!hasPermission(ctx, projectId, permission)) throw new ForbiddenError();
 }
 
-// ---------- runtime helpers (TanStack Start aware) ----------
-
-export function getEnv(): Env {
-  const req = getWebRequest();
-  // @ts-expect-error nitro adds cf.env on request
-  const env: Env | undefined = req?.cf?.env ?? (globalThis as any).__env__;
-  if (!env) {
-    throw new Error('Cloudflare env is not available.  Are you running under wrangler/vinxi-dev?');
-  }
-  return env;
-}
-
-export function getDb(env: Env = getEnv()): DB {
-  return makeDb(env.DB);
-}
-
-export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const env = getEnv();
-  const req = getWebRequest();
-  const cookie = req?.headers.get('cookie') ?? null;
-  return userFromSessionImpl(getDb(env), env, cookie);
-}
-
-export async function requireUser(): Promise<CurrentUser> {
-  const u = await getCurrentUser();
-  if (!u) throw new UnauthorizedError();
-  return u;
-}
-
-export async function buildAuthContext(userId: number): Promise<AuthContext> {
-  return buildAuthContextImpl(getDb(), userId);
-}
-
-export async function requirePermission(
-  projectId: number,
-  permission: Permission,
-): Promise<{ user: CurrentUser; ctx: AuthContext }> {
-  const user = await requireUser();
-  const ctx = await buildAuthContext(user.id);
-  checkPermission(ctx, projectId, permission);
-  return { user, ctx };
-}
-
-export async function requireAdmin(): Promise<CurrentUser> {
-  const user = await requireUser();
-  if (!user.isAdmin) throw new ForbiddenError('Admin only');
-  return user;
-}
+// The TanStack Start–aware runtime helpers (`getEnv`, `getCurrentUser`,
+// `requirePermission`, …) live in a sibling module: `./auth-runtime`.
+// Importing them from there directly keeps this file free of SSR runtime
+// imports, so it can be loaded from the wrangler integration test worker.

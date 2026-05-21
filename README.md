@@ -170,21 +170,27 @@ Admins (users with `admin = 1`) bypass all per-project checks.
 ## Tests
 
 ```bash
-npm run test            # one-shot vitest
+npm run test            # all 3 projects (node + jsdom + workers / miniflare)
 npm run test:watch      # interactive
-npm run test:coverage   # with v8 coverage report + thresholds (HTML in coverage/)
+npm run test:coverage   # node + jsdom with v8 coverage + thresholds
+npm run test:workers    # workers project only (miniflare D1/KV/R2)
 ```
+
+Currently: **202 tests** across 22 files, **100%** lines / statements /
+functions, **96.88%** branches.
 
 Layout:
 
 ```
 tests/
-├── _setup/      # in-memory D1 (better-sqlite3) + KV/R2 fakes + jsdom setup
+├── _setup/      # makeTestDb() (better-sqlite3) + KV/R2 fakes + jsdom setup
 ├── lib/         # format, permissions
 ├── server/      # auth, projects, issues, members, versions, categories,
 │                # time-entries, wiki, attachments, activities, search,
 │                # password, session, markdown, github-oauth
-└── components/  # Layout, ProjectSidebar, badges, Markdown
+├── components/  # Layout, ProjectSidebar, badges, Markdown
+└── workers/     # smoke tests via SELF.fetch against app/test-worker.ts
+                # in a real Miniflare runtime (D1 + KV + R2 + WebCrypto + JOSE)
 ```
 
 Coverage thresholds are configured in [vitest.config.ts](vitest.config.ts).

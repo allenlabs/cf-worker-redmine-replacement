@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { users } from '~/db/schema';
 import { formatDateTime } from '~/lib/format';
-import { getDb, requireAdmin } from '~/server/auth';
+import { getDb, requireAdmin } from '~/server/auth-runtime';
 
 const loadUsers = createServerFn({ method: 'GET' }).handler(async () => {
   await requireAdmin();
@@ -13,7 +13,7 @@ const loadUsers = createServerFn({ method: 'GET' }).handler(async () => {
 });
 
 const setAdmin = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => z.object({ id: z.number(), admin: z.boolean() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.number(), admin: z.boolean() }).parse(d))
   .handler(async ({ data }) => {
     await requireAdmin();
     const db = getDb();
@@ -22,7 +22,7 @@ const setAdmin = createServerFn({ method: 'POST' })
   });
 
 const setStatus = createServerFn({ method: 'POST' })
-  .validator((d: unknown) =>
+  .inputValidator((d: unknown) =>
     z.object({ id: z.number(), status: z.enum(['active', 'locked']) }).parse(d),
   )
   .handler(async ({ data }) => {

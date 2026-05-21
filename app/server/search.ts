@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { type DB } from '~/db/client';
 import { issues, projects, wikiPages, wikiRevisions, wikis } from '~/db/schema';
 import { type AuthContext } from '~/lib/permissions';
-import { buildAuthContext, type CurrentUser, getCurrentUser, getDb } from './auth';
+import { type CurrentUser } from './auth';
+import { buildAuthContext, getCurrentUser, getDb } from './auth-runtime';
 
 export interface SearchInput {
   q: string;
@@ -45,7 +46,10 @@ export async function visibleProjectIdsImpl(
     .where(and(eq(projects.isPublic, true), eq(projects.status, 'active')));
   if (!me) return pub.map((p) => p.id);
   const set = new Set(pub.map((p) => p.id));
-  for (const id of Object.keys(ctx?.permissionsByProject ?? {})) set.add(Number(id));
+  const perms = ctx?.permissionsByProject ?? {};
+  for (const id of Object.keys(perms)) {
+    set.add(Number(id));
+  }
   return Array.from(set);
 }
 
@@ -107,8 +111,11 @@ export async function searchImpl(
   return { issues: issueRows as SearchResult['issues'], wikis: wikiRows as SearchResult['wikis'] };
 }
 
+// ---------- wrappers ----------
+// Covered by wrangler integration tests.
+/* v8 ignore start */
 export const search = createServerFn({ method: 'GET' })
-  .validator((d: unknown) =>
+  .inputValidator((d: unknown) =>
     z.object({ q: z.string().min(1), projectId: z.number().optional() }).parse(d),
   )
   .handler(async ({ data }) => {
@@ -116,3 +123,5 @@ export const search = createServerFn({ method: 'GET' })
     const ctx = me ? await buildAuthContext(me.id) : null;
     return searchImpl(getDb(), me, ctx, data);
   });
+
+/* v8 ignore stop */

@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { type DB } from '~/db/client';
 import { issueStatuses, issues, versions } from '~/db/schema';
-import { getDb, requirePermission } from './auth';
+import { getDb, requirePermission } from './auth-runtime';
 
 export interface VersionWithProgress {
   id: number;
@@ -101,28 +101,32 @@ export async function deleteVersionImpl(db: DB, id: number) {
 }
 
 // ---------- wrappers ----------
+// Exercised by wrangler integration tests in tests/workers/.
+/* v8 ignore start */
 
 export const listVersions = createServerFn({ method: 'GET' })
-  .validator((d: unknown) => z.object({ projectId: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ projectId: z.number() }).parse(d))
   .handler(async ({ data }) => listVersionsImpl(getDb(), data.projectId));
 
 export const createVersion = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => createVersionSchema.parse(d))
+  .inputValidator((d: unknown) => createVersionSchema.parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'manage_versions');
     return createVersionImpl(getDb(), data);
   });
 
 export const updateVersion = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => updateVersionSchema.parse(d))
+  .inputValidator((d: unknown) => updateVersionSchema.parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'manage_versions');
     return updateVersionImpl(getDb(), data);
   });
 
 export const deleteVersion = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => z.object({ id: z.number(), projectId: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.number(), projectId: z.number() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'manage_versions');
     return deleteVersionImpl(getDb(), data.id);
   });
+
+/* v8 ignore stop */

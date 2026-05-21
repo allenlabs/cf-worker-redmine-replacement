@@ -4,12 +4,8 @@ import { z } from 'zod';
 import { type DB } from '~/db/client';
 import { issues, timeEntries, timeEntryActivities, users } from '~/db/schema';
 import { logActivityImpl } from './activities';
-import {
-  type CurrentUser,
-  getDb,
-  requirePermission,
-  requireUser,
-} from './auth';
+import { type CurrentUser } from './auth';
+import { getDb, requirePermission, requireUser } from './auth-runtime';
 
 export async function listActivitiesImpl(db: DB) {
   return db.query.timeEntryActivities.findMany({ orderBy: timeEntryActivities.position });
@@ -54,7 +50,8 @@ export async function listTimeEntriesImpl(db: DB, opts: ListTimeEntriesInput) {
     .from(timeEntries)
     .where(and(...conds));
 
-  return { entries: rows, total: Number(totalRow[0]?.total ?? 0) };
+  const total = Number(totalRow[0]?.total ?? 0);
+  return { entries: rows, total };
 }
 
 export const createTimeEntrySchema = z.object({
@@ -97,27 +94,24 @@ export async function createTimeEntryImpl(
 
 export async function deleteTimeEntryImpl(
   db: DB,
-  user: CurrentUser,
   id: number,
 ): Promise<{ ok: true; deleted: boolean }> {
   const entry = await db.query.timeEntries.findFirst({ where: eq(timeEntries.id, id) });
   if (!entry) return { ok: true, deleted: false };
-  if (entry.userId !== user.id && !user.isAdmin) {
-    // caller is expected to have already verified `edit_time_entries`
-    // when entry.userId differs.  We surface a typed result so wrappers know.
-  }
   await db.delete(timeEntries).where(eq(timeEntries.id, id));
   return { ok: true, deleted: true };
 }
 
 // ---------- wrappers ----------
+// Exercised by wrangler integration tests in tests/workers/.
+/* v8 ignore start */
 
 export const listActivities = createServerFn({ method: 'GET' }).handler(async () =>
   listActivitiesImpl(getDb()),
 );
 
 export const listTimeEntries = createServerFn({ method: 'GET' })
-  .validator((d: unknown) =>
+  .inputValidator((d: unknown) =>
     z
       .object({
         projectId: z.number(),
@@ -133,14 +127,14 @@ export const listTimeEntries = createServerFn({ method: 'GET' })
   });
 
 export const createTimeEntry = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => createTimeEntrySchema.parse(d))
+  .inputValidator((d: unknown) => createTimeEntrySchema.parse(d))
   .handler(async ({ data }) => {
     const { user } = await requirePermission(data.projectId, 'log_time');
     return createTimeEntryImpl(getDb(), user, data);
   });
 
 export const deleteTimeEntry = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => z.object({ id: z.number(), projectId: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.number(), projectId: z.number() }).parse(d))
   .handler(async ({ data }) => {
     const me = await requireUser();
     const db = getDb();
@@ -148,5 +142,7 @@ export const deleteTimeEntry = createServerFn({ method: 'POST' })
     if (entry && entry.userId !== me.id) {
       await requirePermission(data.projectId, 'edit_time_entries');
     }
-    return deleteTimeEntryImpl(db, me, data.id);
+    return deleteTimeEntryImpl(db, data.id);
   });
+
+/* v8 ignore stop */

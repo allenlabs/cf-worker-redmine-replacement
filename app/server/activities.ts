@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { desc, eq } from 'drizzle-orm';
 import { type DB } from '~/db/client';
 import { activities, projects, users } from '~/db/schema';
-import { getDb } from './auth';
+import { getDb } from './auth-runtime';
 
 type Kind =
   | 'issue_created'
@@ -73,6 +73,8 @@ export async function listActivitiesImpl(
   return rows as ActivityRow[];
 }
 
+// Legacy named exports — exercised by wrangler integration tests.
+/* v8 ignore start */
 // Legacy named exports — kept for routes that imported them previously.
 export async function logActivity(input: LogActivityInput): Promise<void> {
   return logActivityImpl(getDb(), input);
@@ -83,3 +85,5 @@ export async function listActivities(
 ): Promise<ActivityRow[]> {
   return listActivitiesImpl(getDb(), opts);
 }
+
+/* v8 ignore stop */

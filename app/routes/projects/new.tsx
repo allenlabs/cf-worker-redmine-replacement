@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { slugify } from '~/lib/format';
-import { getCurrentUser } from '~/server/auth';
+import { getCurrentUser } from '~/server/auth-runtime';
 import { createProject } from '~/server/projects';
 
 export const Route = createFileRoute('/projects/new')({

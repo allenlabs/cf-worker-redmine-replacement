@@ -5,7 +5,7 @@ import { eq, or } from 'drizzle-orm';
 import { useState } from 'react';
 import { z } from 'zod';
 import { users } from '~/db/schema';
-import { getDb, getCurrentUser, getEnv } from '~/server/auth';
+import { getDb, getCurrentUser, getEnv } from '~/server/auth-runtime';
 import { hashPassword } from '~/server/password';
 import { cookieHeader, createSessionToken } from '~/server/session';
 
@@ -15,7 +15,7 @@ const pageData = createServerFn({ method: 'GET' }).handler(async () => {
 });
 
 const submitRegister = createServerFn({ method: 'POST' })
-  .validator((d: unknown) =>
+  .inputValidator((d: unknown) =>
     z
       .object({
         login: z

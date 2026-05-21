@@ -123,6 +123,22 @@ describe('getProjectImpl', () => {
     const r = await getProjectImpl(db, makeUser({ isAdmin: true }), null, p.identifier);
     expect(r.id).toBe(p.id);
   });
+
+  it('reflects enabled modules + versions + categories after createProjectImpl', async () => {
+    const u = await insertUser(db);
+    const created = await createProjectImpl(db, makeUser({ id: u.id, login: u.login }), {
+      identifier: 'full-flow',
+      name: 'Full Flow',
+      description: '',
+      homepage: '',
+      isPublic: true,
+    });
+    const r = await getProjectImpl(db, null, null, created.identifier);
+    expect(r.modules.sort()).toEqual([
+      'files', 'gantt', 'issue_tracking', 'roadmap', 'time_tracking', 'wiki',
+    ]);
+    expect(r.trackers.length).toBeGreaterThan(0);
+  });
 });
 
 describe('createProjectImpl', () => {
@@ -192,6 +208,36 @@ describe('createProjectImpl', () => {
     expect(act?.kind).toBe('project_created');
     expect(act?.title).toContain('alice');
     expect(act?.refId).toBe(created.id);
+  });
+
+  it('skips tracker enabling when no trackers seeded', async () => {
+    const { trackers } = await import('~/db/schema');
+    await db.delete(trackers);
+    const u = await insertUser(db);
+    const created = await createProjectImpl(db, makeUser({ id: u.id, login: u.login }), {
+      identifier: 'no-trackers',
+      name: 'X',
+      description: '',
+      homepage: '',
+      isPublic: false,
+    });
+    expect(created.identifier).toBe('no-trackers');
+  });
+
+  it('skips manager assignment when Manager role missing', async () => {
+    const { roles } = await import('~/db/schema');
+    await db.delete(roles);
+    const u = await insertUser(db);
+    const created = await createProjectImpl(db, makeUser({ id: u.id, login: u.login }), {
+      identifier: 'no-roles',
+      name: 'X',
+      description: '',
+      homepage: '',
+      isPublic: false,
+    });
+    expect(created.identifier).toBe('no-roles');
+    const ms = await db.query.members.findMany();
+    expect(ms).toHaveLength(0);
   });
 });
 

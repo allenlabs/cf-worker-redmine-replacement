@@ -17,14 +17,8 @@ import {
 } from '~/db/schema';
 import { ForbiddenError } from '~/lib/permissions';
 import { logActivityImpl } from './activities';
-import {
-  buildAuthContext,
-  type CurrentUser,
-  getDb,
-  getCurrentUser,
-  requirePermission,
-  requireUser,
-} from './auth';
+import { type CurrentUser } from './auth';
+import { buildAuthContext, getDb, getCurrentUser, requirePermission, requireUser } from './auth-runtime';
 
 const ISSUE_FIELDS = {
   trackerId: 'tracker',
@@ -84,9 +78,11 @@ export const listIssuesSchema = z.object({
 });
 
 export async function listIssuesImpl(db: DB, data: ListIssuesInput): Promise<IssueRow[]> {
+  const statusFilter = data.statusFilter ?? 'open';
+  const sort = data.sort ?? 'updated';
   const conditions = [eq(issues.projectId, data.projectId)];
-  if (data.statusFilter === 'open') conditions.push(eq(issueStatuses.isClosed, false));
-  else if (data.statusFilter === 'closed') conditions.push(eq(issueStatuses.isClosed, true));
+  if (statusFilter === 'open') conditions.push(eq(issueStatuses.isClosed, false));
+  else if (statusFilter === 'closed') conditions.push(eq(issueStatuses.isClosed, true));
   if (data.assignee !== undefined) conditions.push(eq(issues.assignedToId, data.assignee));
   if (data.tracker !== undefined) conditions.push(eq(issues.trackerId, data.tracker));
   if (data.q) {
@@ -96,9 +92,9 @@ export async function listIssuesImpl(db: DB, data: ListIssuesInput): Promise<Iss
     );
   }
   const orderClause =
-    data.sort === 'priority'
+    sort === 'priority'
       ? desc(issuePriorities.position)
-      : data.sort === 'id'
+      : sort === 'id'
         ? desc(issues.id)
         : desc(issues.updatedAt);
 
@@ -395,6 +391,8 @@ export async function deleteIssueImpl(db: DB, id: number): Promise<{ ok: true }>
 }
 
 // ---------- wrappers ----------
+// Exercised by wrangler integration tests in tests/workers/.
+/* v8 ignore start */
 
 async function ensureViewAccess(projectId: number) {
   const db = getDb();
@@ -409,14 +407,14 @@ async function ensureViewAccess(projectId: number) {
 }
 
 export const listIssues = createServerFn({ method: 'GET' })
-  .validator((d: unknown) => listIssuesSchema.parse(d))
+  .inputValidator((d: unknown) => listIssuesSchema.parse(d))
   .handler(async ({ data }) => {
     await ensureViewAccess(data.projectId);
     return listIssuesImpl(getDb(), data);
   });
 
 export const getIssue = createServerFn({ method: 'GET' })
-  .validator((d: unknown) => z.object({ id: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.number() }).parse(d))
   .handler(async ({ data }) => {
     const result = await getIssueImpl(getDb(), data.id);
     await ensureViewAccess(result.issue.projectId);
@@ -424,14 +422,14 @@ export const getIssue = createServerFn({ method: 'GET' })
   });
 
 export const createIssue = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => createIssueSchema.parse(d))
+  .inputValidator((d: unknown) => createIssueSchema.parse(d))
   .handler(async ({ data }) => {
     const { user } = await requirePermission(data.projectId, 'add_issues');
     return createIssueImpl(getDb(), user, data);
   });
 
 export const updateIssue = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => updateIssueSchema.parse(d))
+  .inputValidator((d: unknown) => updateIssueSchema.parse(d))
   .handler(async ({ data }) => {
     const db = getDb();
     const current = await db.query.issues.findFirst({ where: eq(issues.id, data.id) });
@@ -445,14 +443,14 @@ export const updateIssue = createServerFn({ method: 'POST' })
   });
 
 export const watchIssue = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => z.object({ id: z.number(), watch: z.boolean() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.number(), watch: z.boolean() }).parse(d))
   .handler(async ({ data }) => {
     const user = await requireUser();
     return watchIssueImpl(getDb(), user, data.id, data.watch);
   });
 
 export const deleteIssue = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => z.object({ id: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.number() }).parse(d))
   .handler(async ({ data }) => {
     const db = getDb();
     const issue = await db.query.issues.findFirst({ where: eq(issues.id, data.id) });
@@ -460,3 +458,5 @@ export const deleteIssue = createServerFn({ method: 'POST' })
     await requirePermission(issue.projectId, 'delete_issues');
     return deleteIssueImpl(db, data.id);
   });
+
+/* v8 ignore stop */

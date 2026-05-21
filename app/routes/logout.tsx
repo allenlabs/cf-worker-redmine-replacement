@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { getWebRequest, setResponseHeaders } from '@tanstack/react-start/server';
-import { getEnv } from '~/server/auth';
+import { getEnv } from '~/server/auth-runtime';
 import { clearCookieHeader, readSessionToken, revokeSession } from '~/server/session';
 
 const doLogout = createServerFn({ method: 'GET' }).handler(async () => {

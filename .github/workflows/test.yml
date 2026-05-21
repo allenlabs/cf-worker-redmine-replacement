@@ -18,13 +18,16 @@ jobs:
           cache: npm
 
       - name: Install
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Type-check
         run: npm run typecheck
 
-      - name: Test with coverage
+      - name: Unit tests + v8 coverage (node + jsdom projects)
         run: npm run test:coverage
+
+      - name: Wrangler integration tests (workers project / miniflare)
+        run: npm run test:workers
 
       - name: Upload coverage report
         if: always()

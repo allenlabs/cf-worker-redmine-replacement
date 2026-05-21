@@ -5,7 +5,8 @@ import { type DB } from '~/db/client';
 import { users, wikiPages, wikiRevisions, wikis } from '~/db/schema';
 import { slugify } from '~/lib/format';
 import { logActivityImpl } from './activities';
-import { type CurrentUser, getDb, requirePermission } from './auth';
+import { type CurrentUser } from './auth';
+import { getDb, requirePermission } from './auth-runtime';
 
 async function getOrCreateWiki(db: DB, projectId: number) {
   let wiki = await db.query.wikis.findFirst({ where: eq(wikis.projectId, projectId) });
@@ -112,6 +113,9 @@ export async function saveWikiPageImpl(
     .set({ currentRevisionId: revision.id })
     .where(eq(wikiPages.id, page.id));
 
+  // Refetch so the returned page reflects the latest title + currentRevisionId.
+  page = (await db.query.wikiPages.findFirst({ where: eq(wikiPages.id, page.id) }))!;
+
   await logActivityImpl(db, {
     projectId: data.projectId,
     userId: user.id,
@@ -130,31 +134,35 @@ export async function deleteWikiPageImpl(db: DB, id: number) {
 }
 
 // ---------- wrappers ----------
+// Exercised by wrangler integration tests in tests/workers/.
+/* v8 ignore start */
 
 export const listWikiPages = createServerFn({ method: 'GET' })
-  .validator((d: unknown) => z.object({ projectId: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ projectId: z.number() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'view_wiki_pages');
     return listWikiPagesImpl(getDb(), data.projectId);
   });
 
 export const getWikiPage = createServerFn({ method: 'GET' })
-  .validator((d: unknown) => z.object({ projectId: z.number(), slug: z.string() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ projectId: z.number(), slug: z.string() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'view_wiki_pages');
     return getWikiPageImpl(getDb(), data.projectId, data.slug);
   });
 
 export const saveWikiPage = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => saveWikiPageSchema.parse(d))
+  .inputValidator((d: unknown) => saveWikiPageSchema.parse(d))
   .handler(async ({ data }) => {
     const { user } = await requirePermission(data.projectId, 'edit_wiki_pages');
     return saveWikiPageImpl(getDb(), user, data);
   });
 
 export const deleteWikiPage = createServerFn({ method: 'POST' })
-  .validator((d: unknown) => z.object({ id: z.number(), projectId: z.number() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.number(), projectId: z.number() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'manage_wiki');
     return deleteWikiPageImpl(getDb(), data.id);
   });
+
+/* v8 ignore stop */
