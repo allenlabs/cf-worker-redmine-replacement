@@ -84,6 +84,7 @@ export function makeTestEnv(overrides: Partial<Env> = {}): Env {
     PUBLIC_BASE_URL: 'http://localhost:3000',
     OTEL_ACCESS_ID: 'test-otel-id',
     OTEL_ACCESS_SECRET: 'test-otel-secret',
+    OTEL_BEARER_TOKEN: 'test-otel-bearer',
     ...overrides,
   };
 }

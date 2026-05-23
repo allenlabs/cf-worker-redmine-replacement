@@ -24,8 +24,12 @@ export interface Env {
   // build a callback URL the auth-web worker can redirect back to.
   PUBLIC_BASE_URL: string;
 
-  // OpenTelemetry → Grafana LGTM via Cloudflare Access service token.
-  // Set via `wrangler secret put OTEL_ACCESS_ID` / `OTEL_ACCESS_SECRET`.
+  // OpenTelemetry → Grafana LGTM.  Three gates in front of the collector:
+  //   1. WAF custom rule on the zone requires `Authorization: Bearer …`.
+  //   2. Cloudflare Access policy requires the service token headers.
+  //   3. The OTLP collector itself.
+  // Wrangler secrets: OTEL_BEARER_TOKEN, OTEL_ACCESS_ID, OTEL_ACCESS_SECRET.
   OTEL_ACCESS_ID: string;
   OTEL_ACCESS_SECRET: string;
+  OTEL_BEARER_TOKEN: string;
 }

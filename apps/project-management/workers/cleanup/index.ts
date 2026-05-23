@@ -25,6 +25,7 @@ interface Env extends CleanupEnv {
   // (use `--config workers/cleanup/wrangler.toml`).
   OTEL_ACCESS_ID: string;
   OTEL_ACCESS_SECRET: string;
+  OTEL_BEARER_TOKEN: string;
 }
 
 const handler = {
@@ -60,6 +61,9 @@ const otelConfig: ResolveConfigFn<Env> = (env) => ({
   exporter: {
     url: 'https://lgtm-otlp.allenlabs.org/v1/traces',
     headers: {
+      // Three gates in front of LGTM: WAF custom rule (Bearer), Cloudflare
+      // Access policy (service token), and the OTLP collector itself.
+      authorization: `Bearer ${env.OTEL_BEARER_TOKEN}`,
       'cf-access-client-id': env.OTEL_ACCESS_ID,
       'cf-access-client-secret': env.OTEL_ACCESS_SECRET,
     },
