@@ -1,14 +1,25 @@
 /// <reference types="vite/client" />
 //
-// Server entry — same caveat as `client.tsx`.  TanStack Start 1.168's
-// `createStartHandler` is wired together with the `tanstackStart()` Vite
-// plugin and the `@cloudflare/vite-plugin` to produce a Cloudflare Workers
-// module-syntax bundle in `dist/server/`.  Verified end-to-end deploy is on
-// the project's TODO list (see README "Status").
+// TanStack Start 1.168 single-call API.  The plugin auto-discovers
+// `getRouter` from app/router.tsx so we don't pass createRouter here.
+//
+// Cloudflare passes the env binding as fetch's 2nd argument, but TanStack
+// Start's request handler signature is (request, requestOpts) and it doesn't
+// forward env down to route server handlers in 1.168.  As a workaround we
+// stash env on globalThis at the entrypoint and read it via getEnv() helpers
+// in auth-runtime.server.ts.  Single-threaded JS per isolate makes this
+// race-safe.
 import {
   createStartHandler,
   defaultStreamHandler,
 } from '@tanstack/react-start/server';
-import { createRouter } from './router';
+import type { Env } from '~/lib/env';
 
-export default createStartHandler({ createRouter })(defaultStreamHandler);
+const handler = createStartHandler(defaultStreamHandler);
+
+export default {
+  async fetch(request, env, ctx): Promise<Response> {
+    (globalThis as { __env__?: Env }).__env__ = env;
+    return await handler(request, { context: { cloudflare: { env, ctx } } });
+  },
+} satisfies ExportedHandler<Env>;

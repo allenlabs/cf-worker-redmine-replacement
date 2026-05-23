@@ -2,38 +2,39 @@ name = "pm-web"
 main = "app/server.tsx"
 compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
 
 # `npm run build` (vite + @cloudflare/vite-plugin) emits the worker bundle.
 # The plugin reads this `main` field as the SSR source.
 assets = { directory = "../../dist/client", binding = "ASSETS" }
 
+# Custom domain — DNS + SSL handled by Cloudflare since allenlabs.org is on
+# the same account.  Workers will create the DNS record automatically.
+[[routes]]
+pattern = "projects.allenlabs.org"
+custom_domain = true
+
 # D1 database — shared with the cleanup worker (see workers/cleanup/wrangler.toml).
-# Run `wrangler d1 create project_management` once and paste the id in BOTH
-# wrangler.toml files.
 [[d1_databases]]
 binding = "DB"
-database_name = "project_management"
-database_id = "REPLACE_ME_AFTER_wrangler_d1_create_project_management"
+database_name = "project-management"
+database_id = "c66b9720-a40f-4e01-9067-f949282ab9fa"
 migrations_dir = "../../drizzle"
 
-# KV namespace for session revocation and short-lived caches.
+# KV namespace for session revocation + JWKS / one-shot caches.
 [[kv_namespaces]]
 binding = "SESSION_KV"
-id = "REPLACE_ME_AFTER_wrangler_kv_namespace_create"
+id = "96408ec81e754c36b4ae3643cf2afd80"
 
-# R2 bucket for issue/wiki attachments — also shared with the cleanup worker.
+# R2 bucket for issue/wiki attachments — shared with the cleanup worker.
 [[r2_buckets]]
 binding = "FILES"
-bucket_name = "pm-files"
-
-# Secrets — set via `wrangler secret put <NAME> --config workers/web/wrangler.toml`
-#   JWT_SECRET                 (required)
-#   GITHUB_OAUTH_CLIENT_ID     (optional, for GitHub login)
-#   GITHUB_OAUTH_CLIENT_SECRET (optional, for GitHub login)
-#   PUBLIC_BASE_URL            (e.g. https://pm.example.com)
+bucket_name = "projects-allenlabs-files"
 
 [vars]
 APP_NAME = "Project Management"
-ALLOW_REGISTRATION = "true"
 DEFAULT_LANGUAGE = "en"
 ATTACHMENT_TTL_DAYS = "365"
+AUTH_WEB_URL = "https://auth.allen.company"
+AUTH_API_URL = "https://auth-api.allen.company"
+PUBLIC_BASE_URL = "https://projects.allenlabs.org"

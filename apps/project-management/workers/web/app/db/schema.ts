@@ -22,6 +22,11 @@ export const users = sqliteTable(
     passwordHash: text('password_hash'),
     passwordSalt: text('password_salt'),
     githubId: integer('github_id'),
+    // Link to the allenlabs-auth Better Auth user id. Populated on the
+    // first SSO sign-in via /auth/callback; thereafter we look up the
+    // local user row by this column. Nullable so existing rows survive
+    // the migration unchanged.
+    betterAuthUserId: text('better_auth_user_id'),
     avatarUrl: text('avatar_url'),
     admin: integer('admin', { mode: 'boolean' }).notNull().default(false),
     status: text('status', { enum: ['active', 'locked'] }).notNull().default('active'),
@@ -35,6 +40,7 @@ export const users = sqliteTable(
     loginIdx: uniqueIndex('users_login_idx').on(t.login),
     emailIdx: uniqueIndex('users_email_idx').on(t.email),
     githubIdx: uniqueIndex('users_github_idx').on(t.githubId),
+    betterAuthIdx: uniqueIndex('users_better_auth_user_id_idx').on(t.betterAuthUserId),
   }),
 );
 

@@ -9,13 +9,16 @@ export type TestDB = BetterSQLite3Database<typeof schema>;
 // Same path on disk for both the migration and the seed; we just load them
 // and execute them inside a fresh in-memory SQLite for every test.
 const ROOT = join(__dirname, '..', '..');
-const MIGRATION = readFileSync(join(ROOT, 'drizzle', '0001_initial.sql'), 'utf8');
+const MIGRATIONS = [
+  '0001_initial.sql',
+  '0002_better_auth_user_id.sql',
+].map((f) => readFileSync(join(ROOT, 'drizzle', f), 'utf8'));
 const SEED = readFileSync(join(ROOT, 'drizzle', 'seed.sql'), 'utf8');
 
 export function makeTestDb(opts?: { seed?: boolean }): TestDB {
   const sqlite = new Database(':memory:');
   sqlite.pragma('foreign_keys = ON');
-  sqlite.exec(MIGRATION);
+  for (const m of MIGRATIONS) sqlite.exec(m);
   if (opts?.seed !== false) sqlite.exec(SEED);
   return drizzle(sqlite, { schema });
 }

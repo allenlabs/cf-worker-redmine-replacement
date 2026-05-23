@@ -1,54 +1,76 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { makeTestEnv } from '../_setup/env';
+import { primeJwks, signTestJwt } from '../_setup/jwt';
 import {
   SESSION_COOKIE,
   clearCookieHeader,
   cookieHeader,
-  createSessionToken,
   readSessionToken,
   revokeSession,
   verifySessionToken,
 } from '~/server/session';
 
-describe('createSessionToken / verifySessionToken', () => {
-  it('round-trips a session payload', async () => {
+describe('verifySessionToken (RS256 / JWKS)', () => {
+  beforeEach(async () => {
+    await primeJwks(makeTestEnv());
+  });
+
+  it('round-trips a payload signed against the JWKS', async () => {
     const env = makeTestEnv();
-    const token = await createSessionToken(env, { sub: '42', login: 'alice', admin: false });
+    const token = await signTestJwt(env, {
+      sub: 'better-auth-user-1',
+      email: 'alice@example.test',
+      name: 'Alice',
+    });
     const payload = await verifySessionToken(env, token);
     expect(payload).not.toBeNull();
-    expect(payload!.sub).toBe('42');
-    expect(payload!.login).toBe('alice');
-    expect(payload!.admin).toBe(false);
-    expect(typeof payload!.iat).toBe('number');
-    expect(typeof payload!.exp).toBe('number');
+    expect(payload!.sub).toBe('better-auth-user-1');
+    expect(payload!.email).toBe('alice@example.test');
+  });
+
+  it('rejects an empty token', async () => {
+    expect(await verifySessionToken(makeTestEnv(), '')).toBeNull();
   });
 
   it('rejects a tampered token', async () => {
     const env = makeTestEnv();
-    const token = await createSessionToken(env, { sub: '1', login: 'a', admin: false });
-    const munged = token.slice(0, -2) + 'XX';
-    expect(await verifySessionToken(env, munged)).toBeNull();
+    const token = await signTestJwt(env, { sub: 'a' });
+    // Flip a byte in the payload segment (middle of the JWT, between the
+    // two dots).  Tweaking the signature tail can land in encoding slack
+    // and slip past verification.
+    const [h, p, s] = token.split('.');
+    const flipped = p![5] === 'A' ? 'B' : 'A';
+    const mungedPayload = p!.slice(0, 5) + flipped + p!.slice(6);
+    expect(await verifySessionToken(env, `${h}.${mungedPayload}.${s}`)).toBeNull();
   });
 
-  it('rejects a token signed with a different secret', async () => {
-    const env1 = makeTestEnv({ JWT_SECRET: 'a-long-and-different-secret-1111111111111' });
-    const env2 = makeTestEnv({ JWT_SECRET: 'a-long-and-different-secret-2222222222222' });
-    const token = await createSessionToken(env1, { sub: '1', login: 'a', admin: false });
-    expect(await verifySessionToken(env2, token)).toBeNull();
+  it('rejects a token issued for a different audience/issuer', async () => {
+    const realEnv = makeTestEnv();
+    const wrongEnv = makeTestEnv({ AUTH_API_URL: 'https://other.test' });
+    const token = await signTestJwt(realEnv, { sub: 'a' });
+    expect(await verifySessionToken(wrongEnv, token)).toBeNull();
   });
 
-  it('throws when JWT_SECRET is not configured', async () => {
-    const env = makeTestEnv({ JWT_SECRET: '' });
-    await expect(createSessionToken(env, { sub: '1', login: 'a', admin: false })).rejects.toThrow(
-      /JWT_SECRET/,
-    );
+  it('rejects an expired token', async () => {
+    const env = makeTestEnv();
+    const token = await signTestJwt(env, { sub: 'a' }, { expSecondsFromNow: -10 });
+    expect(await verifySessionToken(env, token)).toBeNull();
+  });
+
+  it('returns null when AUTH_API_URL is unset', async () => {
+    const env = makeTestEnv({ AUTH_API_URL: '' });
+    expect(await verifySessionToken(env, 'any')).toBeNull();
   });
 });
 
 describe('revokeSession', () => {
-  it('causes a token to be rejected', async () => {
+  beforeEach(async () => {
+    await primeJwks(makeTestEnv());
+  });
+
+  it('causes a previously-valid token to be rejected', async () => {
     const env = makeTestEnv();
-    const token = await createSessionToken(env, { sub: '1', login: 'a', admin: false });
+    const token = await signTestJwt(env, { sub: 'a' });
     expect(await verifySessionToken(env, token)).not.toBeNull();
     await revokeSession(env, token);
     expect(await verifySessionToken(env, token)).toBeNull();
@@ -56,34 +78,37 @@ describe('revokeSession', () => {
 });
 
 describe('cookie helpers', () => {
-  it('cookieHeader sets HttpOnly, Secure, SameSite=Lax and Max-Age', () => {
-    const h = cookieHeader('abc');
-    expect(h.startsWith(`${SESSION_COOKIE}=abc;`)).toBe(true);
+  it('cookieHeader produces a Secure HttpOnly Lax cookie', () => {
+    const h = cookieHeader('xyz');
+    expect(h).toContain(`${SESSION_COOKIE}=xyz`);
     expect(h).toContain('HttpOnly');
     expect(h).toContain('Secure');
     expect(h).toContain('SameSite=Lax');
+    expect(h).toContain('Path=/');
     expect(h).toMatch(/Max-Age=\d+/);
   });
 
-  it('cookieHeader respects custom maxAgeDays', () => {
-    const h = cookieHeader('abc', 1);
-    expect(h).toContain('Max-Age=86400');
+  it('cookieHeader honours a custom max-age', () => {
+    expect(cookieHeader('xyz', 120)).toContain('Max-Age=120');
   });
 
-  it('clearCookieHeader uses Max-Age=0', () => {
+  it('clearCookieHeader emits Max-Age=0', () => {
     expect(clearCookieHeader()).toContain('Max-Age=0');
   });
 
-  it('readSessionToken extracts the cookie from a header string', () => {
-    expect(readSessionToken(`a=1; ${SESSION_COOKIE}=tok.value; other=x`)).toBe('tok.value');
+  it('readSessionToken extracts the token, ignoring other cookies', () => {
+    expect(readSessionToken(`foo=bar; ${SESSION_COOKIE}=tok; baz=qux`)).toBe('tok');
   });
 
-  it('readSessionToken returns null for missing cookie or null header', () => {
-    expect(readSessionToken(null)).toBe(null);
-    expect(readSessionToken('foo=bar')).toBe(null);
+  it('readSessionToken returns null when the cookie is absent', () => {
+    expect(readSessionToken('foo=bar')).toBeNull();
   });
 
-  it('readSessionToken handles tokens containing "=" (base64 padding)', () => {
-    expect(readSessionToken(`${SESSION_COOKIE}=abc==`)).toBe('abc==');
+  it('readSessionToken returns null on a null cookie string', () => {
+    expect(readSessionToken(null)).toBeNull();
+  });
+
+  it('readSessionToken handles values containing `=`', () => {
+    expect(readSessionToken(`${SESSION_COOKIE}=eyJ=foo=bar`)).toBe('eyJ=foo=bar');
   });
 });

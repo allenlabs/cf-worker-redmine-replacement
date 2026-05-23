@@ -1,13 +1,30 @@
-import { SignJWT, jwtVerify } from 'jose';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import type { Env } from '~/lib/env';
 
-export const SESSION_COOKIE = 'cfr_session';
-export const SESSION_DAYS = 14;
-export const SESSION_MAX_AGE_SECONDS = SESSION_DAYS * 24 * 60 * 60;
+/**
+ * Session handling for the post-SSO world.
+ *
+ * Sign-in itself happens on auth.allen.company (allenlabs-auth-web).  PM
+ * never sees the user's password — it only receives a one-time code at
+ * /auth/callback, swaps it for an RS256 JWT against auth-api.allen.company,
+ * and stores that JWT in `cfr_session`.  Every request thereafter:
+ *
+ *   1. Read `cfr_session` cookie.
+ *   2. Verify the JWT signature against the JWKS published by auth-api
+ *      (cached in-process by `createRemoteJWKSet`).
+ *   3. Map `sub` (Better Auth user id, a UUID string) to a local users
+ *      row via `better_auth_user_id` and return it.
+ *
+ * Cookie lifetime is bounded by the JWT's `exp` (1h per auth-api config),
+ * so an expired cookie means a silent round-trip through /auth/login →
+ * auth.allen.company → /auth/callback to refresh.  The auth.allen.company
+ * cookie keeps the user signed in there for 7 days, so the refresh is
+ * password-less.
+ */
 
-// Cookie options shared by the TanStack Start `setCookie()` API and our
-// `cookieHeader()` raw-string helper.  Lives here so callers don't disagree
-// on attributes.
+export const SESSION_COOKIE = 'cfr_session';
+export const SESSION_MAX_AGE_SECONDS = 60 * 60; // 1h — matches auth-api JWT expiry.
+
 export const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: true,
@@ -16,48 +33,57 @@ export const SESSION_COOKIE_OPTIONS = {
   maxAge: SESSION_MAX_AGE_SECONDS,
 };
 
-export interface SessionPayload {
-  sub: string; // user id (as string)
-  login: string;
-  admin: boolean;
-  iat?: number;
-  exp?: number;
+export interface SessionPayload extends JWTPayload {
+  sub: string;       // Better Auth user id (UUID string)
+  email?: string;
+  name?: string | null;
+  role?: string | null;
+  banned?: boolean | number | null;
 }
 
-function secretKey(env: Env): Uint8Array {
-  if (!env.JWT_SECRET) {
-    throw new Error('JWT_SECRET is not configured.  Run `wrangler secret put JWT_SECRET`.');
+// JWKS cache — one entry per JWKS URL, shared across requests within the
+// same isolate. `createRemoteJWKSet` handles 5-minute cache + auto-refetch
+// on key rotation.
+const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+function getJwks(env: Env): ReturnType<typeof createRemoteJWKSet> {
+  const base = env.AUTH_API_URL;
+  if (!base) {
+    throw new Error('AUTH_API_URL is not configured.');
   }
-  return new TextEncoder().encode(env.JWT_SECRET);
+  const url = `${base.replace(/\/$/, '')}/.well-known/jwks.json`;
+  let jwks = jwksCache.get(url);
+  if (!jwks) {
+    jwks = createRemoteJWKSet(new URL(url));
+    jwksCache.set(url, jwks);
+  }
+  return jwks;
 }
 
-export async function createSessionToken(
-  env: Env,
-  payload: Omit<SessionPayload, 'iat' | 'exp'>,
-): Promise<string> {
-  return await new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(`${SESSION_DAYS}d`)
-    .setIssuer('cf-redmine')
-    .sign(secretKey(env));
-}
-
+/**
+ * Verify a session token (the RS256 JWT minted by auth-api) and return its
+ * payload, or null if the token is missing / invalid / expired / revoked.
+ */
 export async function verifySessionToken(
   env: Env,
   token: string,
 ): Promise<SessionPayload | null> {
+  if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, secretKey(env), { issuer: 'cf-redmine' });
     if (await isRevoked(env, token)) return null;
-    return payload as unknown as SessionPayload;
+    const jwks = getJwks(env);
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer: env.AUTH_API_URL,
+      audience: env.AUTH_API_URL,
+    });
+    if (typeof payload.sub !== 'string') return null;
+    return payload as SessionPayload;
   } catch {
     return null;
   }
 }
 
-export function cookieHeader(token: string, maxAgeDays = SESSION_DAYS): string {
-  const maxAge = maxAgeDays * 24 * 60 * 60;
+export function cookieHeader(token: string, maxAge = SESSION_MAX_AGE_SECONDS): string {
   return `${SESSION_COOKIE}=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
 }
 
@@ -74,10 +100,14 @@ export function readSessionToken(cookieString: string | null): string | null {
   return null;
 }
 
-// Revoke a JWT before its natural expiration by storing its jti/token-hash in KV.
+/**
+ * Revoke a JWT before its natural expiration by storing its hash in KV.
+ * Useful for /auth/logout — though the auth-api session lives longer, so
+ * the user would also need to sign out there for a complete logout.
+ */
 export async function revokeSession(env: Env, token: string): Promise<void> {
   const key = await tokenKey(token);
-  await env.SESSION_KV.put(key, '1', { expirationTtl: SESSION_DAYS * 24 * 60 * 60 });
+  await env.SESSION_KV.put(key, '1', { expirationTtl: SESSION_MAX_AGE_SECONDS });
 }
 
 async function isRevoked(env: Env, token: string): Promise<boolean> {
@@ -92,4 +122,18 @@ async function tokenKey(token: string): Promise<string> {
   let hex = '';
   for (const b of arr) hex += b.toString(16).padStart(2, '0');
   return `revoked:${hex}`;
+}
+
+// Exposed for tests so they can pre-seed the JWKS cache with a static
+// in-memory key set instead of fetching the real /.well-known/jwks.json.
+export function _setJwksForTests(
+  authApiUrl: string,
+  jwks: ReturnType<typeof createRemoteJWKSet>,
+): void {
+  const url = `${authApiUrl.replace(/\/$/, '')}/.well-known/jwks.json`;
+  jwksCache.set(url, jwks);
+}
+
+export function _clearJwksCacheForTests(): void {
+  jwksCache.clear();
 }

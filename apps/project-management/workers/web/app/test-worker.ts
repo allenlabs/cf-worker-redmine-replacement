@@ -1,23 +1,20 @@
 // Minimal HTTP worker used only by the wrangler integration tests in
-// `tests/workers/`.  It exercises the runtime auth/session/password helpers
-// inside a real Workers runtime + Miniflare D1 — proof that those code paths
-// work end-to-end (cookies, WebCrypto, JOSE JWT, D1 driver).
+// `tests/workers/`.  It exercises the runtime auth/session helpers inside a
+// real Workers runtime + Miniflare D1 — proof that those code paths work
+// end-to-end (cookies, WebCrypto, JOSE JWT verify, JWKS cache, D1 driver).
 //
 // The TanStack Start `createServerFn` wrappers are NOT mounted here: doing so
 // pulls in the TanStack Start SSR runtime, which Vite can only resolve once
 // the @tanstack/start-plugin-core Vite plugin has set up `#tanstack-router-entry`.
 // For the integration tests we just need to prove the leaf primitives behave.
 
-import { eq } from 'drizzle-orm';
 import { makeDb } from '~/db/client';
-import { users } from '~/db/schema';
 import type { Env } from '~/lib/env';
-import { userFromSessionImpl } from '~/server/auth';
-import { hashPassword, verifyPassword } from '~/server/password';
+import { findOrCreateUserBySsoImpl, userFromSessionImpl } from '~/server/auth';
 import {
   cookieHeader,
-  createSessionToken,
   readSessionToken,
+  revokeSession,
   verifySessionToken,
 } from '~/server/session';
 
@@ -38,32 +35,18 @@ export default {
       return json({ user: me });
     }
 
-    if (url.pathname === '/api/signup' && req.method === 'POST') {
-      const { login, password, admin } = (await req.json()) as {
-        login: string;
-        password: string;
-        admin?: boolean;
+    // Test-only: tests post `{ token, sub, email, name }` to seed a session
+    // cookie for the rest of the flow.  Production never hits this path —
+    // it's behind the test-worker entry which only Miniflare can reach.
+    if (url.pathname === '/api/test/sign-in-with-token' && req.method === 'POST') {
+      const { token, sub, email, name } = (await req.json()) as {
+        token: string;
+        sub: string;
+        email?: string;
+        name?: string;
       };
-      const { hash, salt } = await hashPassword(password);
-      const [u] = await db
-        .insert(users)
-        .values({
-          login,
-          email: `${login}@example.test`,
-          passwordHash: hash,
-          passwordSalt: salt,
-          admin: admin ?? false,
-        })
-        .returning();
-      const token = await createSessionToken(env, {
-        sub: String(u.id),
-        login: u.login,
-        admin: u.admin,
-      });
-      return json(
-        { ok: true, id: u.id },
-        { headers: { 'set-cookie': cookieHeader(token) } },
-      );
+      await findOrCreateUserBySsoImpl(db, { sub, email, name });
+      return json({ ok: true }, { headers: { 'set-cookie': cookieHeader(token) } });
     }
 
     if (url.pathname === '/api/sessions/verify' && req.method === 'GET') {
@@ -73,15 +56,11 @@ export default {
       return json({ valid: !!payload, payload });
     }
 
-    if (url.pathname === '/api/password/check' && req.method === 'POST') {
-      const { login, password } = (await req.json()) as {
-        login: string;
-        password: string;
-      };
-      const row = await db.query.users.findFirst({ where: eq(users.login, login) });
-      if (!row) return json({ ok: false, reason: 'unknown user' });
-      const ok = await verifyPassword(password, row.passwordHash, row.passwordSalt);
-      return json({ ok });
+    if (url.pathname === '/api/sessions/revoke' && req.method === 'POST') {
+      const token = readSessionToken(cookie);
+      if (!token) return json({ ok: false });
+      await revokeSession(env, token);
+      return json({ ok: true });
     }
 
     if (url.pathname === '/api/r2/put' && req.method === 'POST') {

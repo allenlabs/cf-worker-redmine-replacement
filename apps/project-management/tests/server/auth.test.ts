@@ -1,18 +1,29 @@
+import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { type TestDB, addManager, insertProject, insertUser, makeTestDb } from '../_setup/db';
+import {
+  type TestDB,
+  addManager,
+  insertProject,
+  insertUser,
+  makeTestDb,
+} from '../_setup/db';
 import { makeTestEnv } from '../_setup/env';
+import { primeJwks, signTestJwt } from '../_setup/jwt';
+import { users } from '~/db/schema';
 import { ForbiddenError, UnauthorizedError } from '~/lib/permissions';
 import {
   buildAuthContextImpl,
   checkPermission,
+  findOrCreateUserBySsoImpl,
   userFromSessionImpl,
 } from '~/server/auth';
-import { cookieHeader, createSessionToken, revokeSession } from '~/server/session';
+import { cookieHeader } from '~/server/session';
 
 let db: TestDB;
 
-beforeEach(() => {
+beforeEach(async () => {
   db = makeTestDb();
+  await primeJwks(makeTestEnv());
 });
 
 describe('buildAuthContextImpl', () => {
@@ -63,40 +74,88 @@ describe('userFromSessionImpl', () => {
 
   it('returns null when cookie present but token invalid', async () => {
     const env = makeTestEnv();
-    const cookie = cookieHeader('not-a-real-jwt');
-    expect(await userFromSessionImpl(db, env, cookie)).toBeNull();
+    expect(await userFromSessionImpl(db, env, cookieHeader('not-a-real-jwt'))).toBeNull();
   });
 
-  it('returns the user for a valid session', async () => {
-    const u = await insertUser(db);
+  it('returns the user when JWT.sub matches better_auth_user_id', async () => {
+    const u = await insertUser(db, { betterAuthUserId: 'ba-user-1' });
     const env = makeTestEnv();
-    const token = await createSessionToken(env, { sub: String(u.id), login: u.login, admin: false });
-    const cookie = cookieHeader(token);
-    const me = await userFromSessionImpl(db, env, cookie);
-    expect(me).not.toBeNull();
-    expect(me!.id).toBe(u.id);
-    expect(me!.login).toBe(u.login);
+    const token = await signTestJwt(env, { sub: 'ba-user-1', email: u.email });
+    const me = await userFromSessionImpl(db, env, cookieHeader(token));
+    expect(me?.id).toBe(u.id);
+    expect(me?.login).toBe(u.login);
   });
 
-  it('returns null when session was revoked', async () => {
-    const u = await insertUser(db);
+  it('returns null when JWT.sub has no matching better_auth_user_id', async () => {
+    await insertUser(db, { betterAuthUserId: 'ba-user-1' });
     const env = makeTestEnv();
-    const token = await createSessionToken(env, { sub: String(u.id), login: u.login, admin: false });
-    await revokeSession(env, token);
-    const cookie = cookieHeader(token);
-    expect(await userFromSessionImpl(db, env, cookie)).toBeNull();
-  });
-
-  it('returns null when the user is locked', async () => {
-    const u = await insertUser(db, { status: 'locked' });
-    const env = makeTestEnv();
-    const token = await createSessionToken(env, { sub: String(u.id), login: u.login, admin: false });
+    const token = await signTestJwt(env, { sub: 'unlinked-ba-user' });
     expect(await userFromSessionImpl(db, env, cookieHeader(token))).toBeNull();
   });
 
-  it('returns null when payload points to a deleted user', async () => {
+  it('returns null when the matched user is locked', async () => {
+    await insertUser(db, { betterAuthUserId: 'ba-user-1', status: 'locked' });
     const env = makeTestEnv();
-    const token = await createSessionToken(env, { sub: '9999', login: 'ghost', admin: false });
+    const token = await signTestJwt(env, { sub: 'ba-user-1' });
     expect(await userFromSessionImpl(db, env, cookieHeader(token))).toBeNull();
+  });
+});
+
+describe('findOrCreateUserBySsoImpl', () => {
+  it('returns the linked user when better_auth_user_id matches', async () => {
+    const existing = await insertUser(db, { betterAuthUserId: 'linked-1' });
+    const out = await findOrCreateUserBySsoImpl(db, {
+      sub: 'linked-1',
+      email: 'unused@example.com',
+    });
+    expect(out.id).toBe(existing.id);
+  });
+
+  it('backfills the link onto an existing user matched by email', async () => {
+    const existing = await insertUser(db, { email: 'migrating@example.com' });
+    const out = await findOrCreateUserBySsoImpl(db, {
+      sub: 'fresh-uuid',
+      email: 'Migrating@Example.Com',
+      name: 'Mig User',
+    });
+    expect(out.id).toBe(existing.id);
+    const refreshed = await db.query.users.findFirst({ where: eq(users.id, existing.id) });
+    expect(refreshed?.betterAuthUserId).toBe('fresh-uuid');
+  });
+
+  it('creates a brand-new user with admin=true when none exist yet', async () => {
+    const out = await findOrCreateUserBySsoImpl(db, {
+      sub: 'first-user',
+      email: 'first@example.com',
+      name: 'First User',
+    });
+    expect(out.email).toBe('first@example.com');
+    expect(out.firstname).toBe('First');
+    expect(out.lastname).toBe('User');
+    expect(out.isAdmin).toBe(true);
+  });
+
+  it('creates a new user (non-admin) when other users already exist', async () => {
+    await insertUser(db, { admin: true });
+    const out = await findOrCreateUserBySsoImpl(db, {
+      sub: 'second-user',
+      email: 'second@example.com',
+    });
+    expect(out.isAdmin).toBe(false);
+  });
+
+  it('dedupes the login when the email local-part is already taken', async () => {
+    await insertUser(db, { login: 'taken', email: 'someone-else@example.com' });
+    const out = await findOrCreateUserBySsoImpl(db, {
+      sub: 'sso-uuid',
+      email: 'taken@example.com',
+    });
+    expect(out.login).toBe('taken1');
+  });
+
+  it('throws when the JWT has no email claim and the user is brand-new', async () => {
+    await expect(
+      findOrCreateUserBySsoImpl(db, { sub: 'no-email-uuid' }),
+    ).rejects.toThrow(/email/);
   });
 });

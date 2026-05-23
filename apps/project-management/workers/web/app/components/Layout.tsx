@@ -38,12 +38,11 @@ export function Layout({ user, appName, children }: Props) {
           {user ? (
             <div className="flex items-center gap-3 text-sm">
               <span className="text-redmine-50">{user.login}</span>
-              <a href="/logout" className="text-white/90 hover:text-white">Logout</a>
+              <a href="/auth/logout" className="text-white/90 hover:text-white">Logout</a>
             </div>
           ) : (
             <div className="flex items-center gap-3 text-sm">
-              <Link to="/login" className="text-white/90 hover:text-white">Login</Link>
-              <Link to="/register" className="text-white/90 hover:text-white">Register</Link>
+              <a href="/auth/login" className="text-white/90 hover:text-white">Sign in</a>
             </div>
           )}
         </div>

@@ -1,4 +1,3 @@
-import { vi } from 'vitest';
 import type { Env } from '~/lib/env';
 
 // In-memory KV implementation good enough for session-revocation tests.
@@ -79,12 +78,10 @@ export function makeTestEnv(overrides: Partial<Env> = {}): Env {
     SESSION_KV: makeMemoryKV(),
     ASSETS: {} as Fetcher,
     APP_NAME: 'CF Redmine (test)',
-    ALLOW_REGISTRATION: 'true',
     DEFAULT_LANGUAGE: 'en',
-    JWT_SECRET: 'unit-test-secret-do-not-use-anywhere-else-12345678901234',
+    AUTH_WEB_URL: 'https://auth.test',
+    AUTH_API_URL: 'https://auth-api.test',
     PUBLIC_BASE_URL: 'http://localhost:3000',
-    GITHUB_OAUTH_CLIENT_ID: 'gh-client-id',
-    GITHUB_OAUTH_CLIENT_SECRET: 'gh-client-secret',
     ...overrides,
   };
 }
