@@ -4,7 +4,7 @@
 // the bindings configured in wrangler.toml and `wrangler secret put`.
 
 export interface Env {
-  DB: D1Database;
+  HYPERDRIVE: Hyperdrive;
   FILES: R2Bucket;
   SESSION_KV: KVNamespace;
   ASSETS: Fetcher;

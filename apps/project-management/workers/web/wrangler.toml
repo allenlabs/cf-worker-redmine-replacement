@@ -14,12 +14,11 @@ assets = { directory = "../../dist/client", binding = "ASSETS" }
 pattern = "projects.allenlabs.org"
 custom_domain = true
 
-# D1 database — shared with the cleanup worker (see workers/cleanup/wrangler.toml).
-[[d1_databases]]
-binding = "DB"
-database_name = "project-management"
-database_id = "c66b9720-a40f-4e01-9067-f949282ab9fa"
-migrations_dir = "../../drizzle"
+# Hyperdrive → Hetzner Postgres (`allenlabs` DB, `pm` schema).
+# Shared with the cleanup worker (see workers/cleanup/wrangler.toml).
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "0b76cf08a44443d39d12f0d51ed059f5"
 
 # KV namespace for session revocation + JWKS / one-shot caches.
 [[kv_namespaces]]

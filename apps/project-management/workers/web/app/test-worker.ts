@@ -27,7 +27,7 @@ const json = (data: unknown, init?: ResponseInit) =>
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
-    const db = makeDb(env.DB);
+    const db = makeDb(env);
     const cookie = req.headers.get('cookie');
 
     if (url.pathname === '/api/whoami' && req.method === 'GET') {

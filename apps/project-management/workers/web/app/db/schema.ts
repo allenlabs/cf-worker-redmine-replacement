@@ -1,20 +1,26 @@
 import { sql } from 'drizzle-orm';
 import {
-  integer,
-  primaryKey,
-  real,
-  sqliteTable,
-  text,
-  uniqueIndex,
+  boolean,
+  doublePrecision,
   index,
-} from 'drizzle-orm/sqlite-core';
+  integer,
+  jsonb,
+  pgSchema,
+  primaryKey,
+  serial,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
+
+export const pm = pgSchema('pm');
 
 // ---------- Users / Sessions ----------
 
-export const users = sqliteTable(
+export const users = pm.table(
   'users',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     login: text('login').notNull(),
     email: text('email').notNull(),
     firstname: text('firstname').notNull().default(''),
@@ -28,13 +34,13 @@ export const users = sqliteTable(
     // the migration unchanged.
     betterAuthUserId: text('better_auth_user_id'),
     avatarUrl: text('avatar_url'),
-    admin: integer('admin', { mode: 'boolean' }).notNull().default(false),
+    admin: boolean('admin').notNull().default(false),
     status: text('status', { enum: ['active', 'locked'] }).notNull().default('active'),
     language: text('language').notNull().default('en'),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
-    lastLoginAt: integer('last_login_at', { mode: 'timestamp' }),
+      .default(sql`now()`),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true, mode: 'date' }),
   },
   (t) => ({
     loginIdx: uniqueIndex('users_login_idx').on(t.login),
@@ -46,35 +52,35 @@ export const users = sqliteTable(
 
 // ---------- Roles / Members ----------
 
-export const roles = sqliteTable('roles', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const roles = pm.table('roles', {
+  id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
-  permissions: text('permissions', { mode: 'json' })
+  permissions: jsonb('permissions')
     .$type<string[]>()
     .notNull()
-    .default(sql`('[]')`),
+    .default(sql`'[]'::jsonb`),
   position: integer('position').notNull().default(1),
 });
 
-export const projects = sqliteTable(
+export const projects = pm.table(
   'projects',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     identifier: text('identifier').notNull(),
     name: text('name').notNull(),
     description: text('description').notNull().default(''),
     homepage: text('homepage').notNull().default(''),
-    isPublic: integer('is_public', { mode: 'boolean' }).notNull().default(false),
+    isPublic: boolean('is_public').notNull().default(false),
     parentId: integer('parent_id'),
     status: text('status', { enum: ['active', 'closed', 'archived'] })
       .notNull()
       .default('active'),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+      .default(sql`now()`),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
+      .default(sql`now()`),
   },
   (t) => ({
     identifierIdx: uniqueIndex('projects_identifier_idx').on(t.identifier),
@@ -82,10 +88,10 @@ export const projects = sqliteTable(
   }),
 );
 
-export const members = sqliteTable(
+export const members = pm.table(
   'members',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     userId: integer('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -95,9 +101,9 @@ export const members = sqliteTable(
     roleId: integer('role_id')
       .notNull()
       .references(() => roles.id, { onDelete: 'restrict' }),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
+      .default(sql`now()`),
   },
   (t) => ({
     uniqMember: uniqueIndex('members_unique_idx').on(t.userId, t.projectId, t.roleId),
@@ -108,36 +114,36 @@ export const members = sqliteTable(
 
 // ---------- Trackers / Statuses / Priorities ----------
 
-export const trackers = sqliteTable('trackers', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const trackers = pm.table('trackers', {
+  id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
   color: text('color').notNull().default('#3a7fa5'),
   position: integer('position').notNull().default(1),
 });
 
-export const issueStatuses = sqliteTable('issue_statuses', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const issueStatuses = pm.table('issue_statuses', {
+  id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
-  isClosed: integer('is_closed', { mode: 'boolean' }).notNull().default(false),
-  isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+  isClosed: boolean('is_closed').notNull().default(false),
+  isDefault: boolean('is_default').notNull().default(false),
   position: integer('position').notNull().default(1),
   color: text('color').notNull().default('#dde9f5'),
 });
 
-export const issuePriorities = sqliteTable('issue_priorities', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const issuePriorities = pm.table('issue_priorities', {
+  id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
-  isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+  isDefault: boolean('is_default').notNull().default(false),
   position: integer('position').notNull().default(1),
   color: text('color').notNull().default('#e3e9ee'),
 });
 
 // ---------- Versions / Categories ----------
 
-export const versions = sqliteTable(
+export const versions = pm.table(
   'versions',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     projectId: integer('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
@@ -153,19 +159,19 @@ export const versions = sqliteTable(
       .notNull()
       .default('none'),
     wikiPage: text('wiki_page'),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
+      .default(sql`now()`),
   },
   (t) => ({
     projectIdx: index('versions_project_idx').on(t.projectId),
   }),
 );
 
-export const issueCategories = sqliteTable(
+export const issueCategories = pm.table(
   'issue_categories',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     projectId: integer('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
@@ -179,10 +185,10 @@ export const issueCategories = sqliteTable(
 
 // ---------- Issues ----------
 
-export const issues = sqliteTable(
+export const issues = pm.table(
   'issues',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     projectId: integer('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
@@ -210,16 +216,16 @@ export const issues = sqliteTable(
     parentId: integer('parent_id'),
     startDate: text('start_date'),
     dueDate: text('due_date'),
-    estimatedHours: real('estimated_hours'),
+    estimatedHours: doublePrecision('estimated_hours'),
     doneRatio: integer('done_ratio').notNull().default(0),
-    isPrivate: integer('is_private', { mode: 'boolean' }).notNull().default(false),
-    closedAt: integer('closed_at', { mode: 'timestamp' }),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    isPrivate: boolean('is_private').notNull().default(false),
+    closedAt: timestamp('closed_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+      .default(sql`now()`),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
+      .default(sql`now()`),
   },
   (t) => ({
     projectIdx: index('issues_project_idx').on(t.projectId),
@@ -232,10 +238,10 @@ export const issues = sqliteTable(
 
 // ---------- Journals (comments + audit log entries on issues) ----------
 
-export const journals = sqliteTable(
+export const journals = pm.table(
   'journals',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     issueId: integer('issue_id')
       .notNull()
       .references(() => issues.id, { onDelete: 'cascade' }),
@@ -243,20 +249,20 @@ export const journals = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
     notes: text('notes').notNull().default(''),
-    privateNotes: integer('private_notes', { mode: 'boolean' }).notNull().default(false),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    privateNotes: boolean('private_notes').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
+      .default(sql`now()`),
   },
   (t) => ({
     issueIdx: index('journals_issue_idx').on(t.issueId),
   }),
 );
 
-export const journalDetails = sqliteTable(
+export const journalDetails = pm.table(
   'journal_details',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     journalId: integer('journal_id')
       .notNull()
       .references(() => journals.id, { onDelete: 'cascade' }),
@@ -272,17 +278,17 @@ export const journalDetails = sqliteTable(
 
 // ---------- Time tracking ----------
 
-export const timeEntryActivities = sqliteTable('time_entry_activities', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const timeEntryActivities = pm.table('time_entry_activities', {
+  id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
-  isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+  isDefault: boolean('is_default').notNull().default(false),
   position: integer('position').notNull().default(1),
 });
 
-export const timeEntries = sqliteTable(
+export const timeEntries = pm.table(
   'time_entries',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     projectId: integer('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
@@ -293,12 +299,12 @@ export const timeEntries = sqliteTable(
     activityId: integer('activity_id')
       .notNull()
       .references(() => timeEntryActivities.id, { onDelete: 'restrict' }),
-    hours: real('hours').notNull(),
+    hours: doublePrecision('hours').notNull(),
     comments: text('comments').notNull().default(''),
     spentOn: text('spent_on').notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
+      .default(sql`now()`),
   },
   (t) => ({
     projectIdx: index('time_entries_project_idx').on(t.projectId),
@@ -310,10 +316,10 @@ export const timeEntries = sqliteTable(
 
 // ---------- Wiki ----------
 
-export const wikis = sqliteTable(
+export const wikis = pm.table(
   'wikis',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     projectId: integer('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
@@ -325,34 +331,34 @@ export const wikis = sqliteTable(
   }),
 );
 
-export const wikiPages = sqliteTable(
+export const wikiPages = pm.table(
   'wiki_pages',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     wikiId: integer('wiki_id')
       .notNull()
       .references(() => wikis.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     slug: text('slug').notNull(),
     parentId: integer('parent_id'),
-    protected: integer('protected', { mode: 'boolean' }).notNull().default(false),
+    protected: boolean('protected').notNull().default(false),
     currentRevisionId: integer('current_revision_id'),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+      .default(sql`now()`),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
+      .default(sql`now()`),
   },
   (t) => ({
     uniqSlug: uniqueIndex('wiki_pages_slug_idx').on(t.wikiId, t.slug),
   }),
 );
 
-export const wikiRevisions = sqliteTable(
+export const wikiRevisions = pm.table(
   'wiki_revisions',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     pageId: integer('page_id')
       .notNull()
       .references(() => wikiPages.id, { onDelete: 'cascade' }),
@@ -362,9 +368,9 @@ export const wikiRevisions = sqliteTable(
     text: text('text').notNull(),
     comments: text('comments').notNull().default(''),
     version: integer('version').notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
+      .default(sql`now()`),
   },
   (t) => ({
     pageIdx: index('wiki_revisions_page_idx').on(t.pageId),
@@ -373,10 +379,10 @@ export const wikiRevisions = sqliteTable(
 
 // ---------- Attachments ----------
 
-export const attachments = sqliteTable(
+export const attachments = pm.table(
   'attachments',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     containerType: text('container_type', {
       enum: ['issue', 'wiki_page', 'project', 'journal'],
     }).notNull(),
@@ -390,9 +396,9 @@ export const attachments = sqliteTable(
     authorId: integer('author_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
+      .default(sql`now()`),
   },
   (t) => ({
     containerIdx: index('attachments_container_idx').on(t.containerType, t.containerId),
@@ -401,10 +407,10 @@ export const attachments = sqliteTable(
 
 // ---------- Activities (global feed) ----------
 
-export const activities = sqliteTable(
+export const activities = pm.table(
   'activities',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     projectId: integer('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     userId: integer('user_id')
       .notNull()
@@ -423,9 +429,9 @@ export const activities = sqliteTable(
     refId: integer('ref_id'),
     title: text('title').notNull(),
     body: text('body').notNull().default(''),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch())`),
+      .default(sql`now()`),
   },
   (t) => ({
     createdIdx: index('activities_created_idx').on(t.createdAt),
@@ -436,7 +442,7 @@ export const activities = sqliteTable(
 
 // ---------- Issue watchers ----------
 
-export const watchers = sqliteTable(
+export const watchers = pm.table(
   'watchers',
   {
     issueId: integer('issue_id')
@@ -453,7 +459,7 @@ export const watchers = sqliteTable(
 
 // ---------- Enabled trackers per project ----------
 
-export const projectTrackers = sqliteTable(
+export const projectTrackers = pm.table(
   'project_trackers',
   {
     projectId: integer('project_id')
@@ -470,7 +476,7 @@ export const projectTrackers = sqliteTable(
 
 // ---------- Project enabled modules ----------
 
-export const enabledModules = sqliteTable(
+export const enabledModules = pm.table(
   'enabled_modules',
   {
     projectId: integer('project_id')

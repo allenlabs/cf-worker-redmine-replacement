@@ -31,7 +31,7 @@ export function getEnv(): Env {
 }
 
 export function getDb(env: Env = getEnv()): DB {
-  return makeDb(env.DB);
+  return makeDb(env);
 }
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
