@@ -183,17 +183,17 @@ const dbByRequest = new WeakMap<
 
 function buildClient(env: { HYPERDRIVE: Hyperdrive }) {
   const raw = postgres(env.HYPERDRIVE.connectionString, {
-    // Hyperdrive multiplexes onto a warm backend pool, so we want a small
-    // per-request client pool — 3 sockets covers most fan-out (e.g. the
-    // 3-query load on /projects) without piling up.
-    max: 3,
+    // Big enough to run every page's parallel fan-out in one batch — the
+    // hottest route (my/page) issues 4 simultaneous queries plus the auth
+    // lookup the route prelude has already kicked off.  Hyperdrive
+    // backend pool is configured for 60 conns, so 8 per isolate is fine.
+    max: 8,
     // Skip the introspective `pg_type` round-trip — Hyperdrive doesn't need
     // it and it saves a request on cold start.
     fetch_types: false,
     // Workers' TCP socket lifetimes are too short for prepared statements
     // to provide a benefit; disable to keep statements stateless.
     prepare: false,
-    // Don't sit on idle connections — return them to the pool fast.
     idle_timeout: 5,
     connection: { search_path: 'pm, public' },
   });

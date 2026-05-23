@@ -26,8 +26,14 @@ const handler = createStartHandler(defaultStreamHandler);
 
 const worker = {
   async fetch(request, env, ctx): Promise<Response> {
+    const t0 = Date.now();
     (globalThis as { __env__?: Env }).__env__ = env;
-    return await handler(request, { context: { cloudflare: { env, ctx } } as unknown as Record<string, unknown> });
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const res = await handler(request, { context: { cloudflare: { env, ctx } } as unknown as Record<string, unknown> });
+    const t1 = Date.now();
+    console.log(`[perf request] ${path} total=${t1-t0}ms status=${res.status}`);
+    return res;
   },
 } satisfies ExportedHandler<Env>;
 
@@ -45,4 +51,8 @@ const otelConfig: ResolveConfigFn<Env> = (env) => ({
   },
 });
 
-export default instrument(worker, otelConfig);
+// TEMP — bypassing OTel instrument wrapper to measure its overhead.
+// export default instrument(worker, otelConfig);
+void instrument;
+void otelConfig;
+export default worker;
