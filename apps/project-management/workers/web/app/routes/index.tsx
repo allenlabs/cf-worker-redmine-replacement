@@ -1,13 +1,21 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { listActivities } from '~/server/activities';
-import { listProjects } from '~/server/projects';
+import { listActivitiesImpl } from '~/server/activities';
+import { listProjectsImpl } from '~/server/projects';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
 import { timeAgo } from '~/lib/format';
 
+// Inline server fn — TanStack Start 1.168.9 has a dispatch issue where
+// awaiting *another* `createServerFn` export from inside an SSR loader's
+// nested server fn returns `undefined`.  Defining the loader's server fn
+// at the callsite + calling the `*Impl` helpers directly avoids it.
 const loadHome = createServerFn({ method: 'GET' }).handler(async () => {
+  const me = await getCurrentUser();
+  const ctx = me ? await buildAuthContext(me.id) : null;
+  const db = getDb();
   const [projects, activities] = await Promise.all([
-    listProjects(),
-    listActivities({ limit: 20 }),
+    listProjectsImpl(db, me, ctx),
+    listActivitiesImpl(db, { limit: 20 }),
   ]);
   return { projects, activities };
 });

@@ -5,26 +5,40 @@
 // the binding. We pin the search_path to `pm, public` so unqualified table
 // references in the drizzle schema resolve to our app schema.
 //
-// NOTE: Cold-start retry.
+// IMPORTANT: per-request client lifetime.
+// In Cloudflare Workers, I/O objects (TCP sockets, streams) are owned by
+// the request handler that created them — accessing them from a different
+// request throws "Cannot perform I/O on behalf of a different request".
+// So we CANNOT cache a `postgres()` client at module level: it opens
+// real TCP sockets that get tied to the first request.  Hyperdrive does
+// its own connection pooling at the network layer, so per-request client
+// construction is cheap (no extra round-trip to Hetzner — Hyperdrive
+// reuses its warm backend connection).
+//
+// To still bridge multiple `makeDb()` calls inside ONE request (every
+// route loader + the auth-runtime helpers), we cache by request: a
+// WeakMap keyed on the current Request gives every call within a request
+// the same drizzle instance, and the WeakMap drops the entry once the
+// request is GC'd.
+//
+// NOTE: Cold-start retry (still useful).
 // Drizzle calls into `sql.unsafe(query, params)` (sometimes followed by
 // `.values()` for array-mode results) for every query it issues. We wrap
 // the postgres.js client in a Proxy that, for `unsafe`, returns a thenable
-// which re-invokes `sql.unsafe(...)` exactly once if the first attempt
-// rejects with a connection-shaped error (Hyperdrive cold-start race,
-// postgres.js socket reset, DNS hiccup). Real PG errors — syntax,
-// constraint, FK violations — are NOT retried: their `code` doesn't match
-// our connection-shape predicate, so they propagate cleanly on first
-// attempt and callers see the actual problem. `begin`/`savepoint` are
-// passed through unmodified: retrying a partially-applied transaction
-// isn't safe, so we let those propagate.
+// which re-invokes `sql.unsafe(...)` on connection-shaped errors. Real
+// PG errors — syntax, constraint, FK violations — are NOT retried.
 
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { getRequest } from '@tanstack/react-start/server';
 import * as schema from './schema';
 
-let sql: ReturnType<typeof postgres> | null = null;
-
-const COLD_START_BACKOFF_MS = 100;
+// Three attempts total: immediate retry, then backoffs.  Cold-start
+// races usually resolve in <300 ms, but Hyperdrive's first request after
+// a long idle can take longer to re-establish the TLS session.  Adding a
+// third attempt with 250 ms backoff covers the long tail without making
+// real errors visibly slow.
+const COLD_START_BACKOFFS_MS: ReadonlyArray<number> = [0, 50, 250];
 
 /**
  * Should this thrown error be retried?  PG-side errors carry an SQLSTATE
@@ -42,16 +56,25 @@ function isRetryableError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return true;
   const e = err as { name?: unknown; code?: unknown; cause?: unknown };
   const code = typeof e.code === 'string' ? e.code : undefined;
-  // SQLSTATE codes are exactly 5 chars (e.g. '23505', '42P01'). postgres.js
-  // surfaces them on PostgresError.code. Anything matching is a real PG
-  // error: don't retry.
-  if (code && /^[0-9A-Z]{5}$/.test(code)) return false;
+  // SQLSTATE class '08' = connection_exception — these ARE retryable
+  // (08000 connection_exception, 08003 connection_does_not_exist,
+  //  08006 connection_failure, 08001 unable_to_establish, 08004
+  //  rejected, 08007 transaction_resolution_unknown).  Don't blanket-
+  //  reject all SQLSTATEs.
+  if (code && /^[0-9A-Z]{5}$/.test(code)) {
+    if (code.startsWith('08')) return true;
+    return false;
+  }
+  // postgres.js synthesises a couple of non-SQLSTATE codes for
+  // pre-protocol failures: CONNECTION_DESTROYED, CONNECTION_ENDED,
+  // CONNECT_TIMEOUT, ECONNRESET, etc.  Those are connection-shape too.
+  if (e.name === 'PostgresError' && !code) return true;
   if (e.name === 'PostgresError') return false;
-  // Otherwise (connection-shape, "Failed query" wrapper, plain Error) →
-  // give it one more try.  Drizzle's wrapper exposes the underlying cause
-  // on `e.cause`; check there too in case the SQLSTATE lives one level
-  // down.
+  // Drizzle's wrapper exposes the underlying cause on `e.cause`; check
+  // there in case the SQLSTATE lives one level down.
   if (e.cause && e.cause !== err) return isRetryableError(e.cause);
+  // Otherwise (connection-shape, "Failed query" wrapper, plain Error,
+  // fetch error from Hyperdrive's HTTP gateway) → retry.
   return true;
 }
 
@@ -106,18 +129,20 @@ function makeRetryingPendingQuery(
   // clean state machine per attempt.
   const run = async (): Promise<unknown> => {
     let attempt = 0;
-    // One retry max — total of two attempts.
+    const maxAttempts = COLD_START_BACKOFFS_MS.length;
     while (true) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pending = (client.unsafe as any)(...args);
         return await (arrayMode ? pending.values() : pending);
       } catch (err) {
-        if (attempt === 0 && isRetryableError(err)) {
+        const next = attempt + 1;
+        if (next < maxAttempts && isRetryableError(err)) {
           const msg = err instanceof Error ? err.message : String(err);
-          console.error('[db cold-start retry]', msg.slice(0, 300));
-          attempt++;
-          await sleep(COLD_START_BACKOFF_MS);
+          console.error(`[db retry ${next}/${maxAttempts - 1}]`, msg.slice(0, 300));
+          attempt = next;
+          const backoff = COLD_START_BACKOFFS_MS[next] ?? 0;
+          if (backoff > 0) await sleep(backoff);
           continue;
         }
         throw err;
@@ -147,22 +172,52 @@ function makeRetryingPendingQuery(
   return wrapper;
 }
 
+// Per-request drizzle instance cache.  WeakMap keyed on the in-flight
+// Request so every `makeDb()` inside a single request shares one client
+// (and therefore one connection pool, ~3 sockets max) — but the entry
+// drops as soon as the request handler exits.
+const dbByRequest = new WeakMap<
+  Request,
+  ReturnType<typeof drizzle<typeof schema>>
+>();
+
+function buildClient(env: { HYPERDRIVE: Hyperdrive }) {
+  const raw = postgres(env.HYPERDRIVE.connectionString, {
+    // Hyperdrive multiplexes onto a warm backend pool, so we want a small
+    // per-request client pool — 3 sockets covers most fan-out (e.g. the
+    // 3-query load on /projects) without piling up.
+    max: 3,
+    // Skip the introspective `pg_type` round-trip — Hyperdrive doesn't need
+    // it and it saves a request on cold start.
+    fetch_types: false,
+    // Workers' TCP socket lifetimes are too short for prepared statements
+    // to provide a benefit; disable to keep statements stateless.
+    prepare: false,
+    // Don't sit on idle connections — return them to the pool fast.
+    idle_timeout: 5,
+    connection: { search_path: 'pm, public' },
+  });
+  return wrapWithColdStartRetry(raw);
+}
+
 export function makeDb(env: { HYPERDRIVE: Hyperdrive }) {
-  if (!sql) {
-    const raw = postgres(env.HYPERDRIVE.connectionString, {
-      // Hyperdrive already pools; cap per-isolate sockets conservatively.
-      max: 5,
-      // Skip the introspective `pg_type` round-trip — Hyperdrive doesn't need
-      // it and it saves a request on cold start.
-      fetch_types: false,
-      // Workers' TCP socket lifetimes are too short for prepared statements
-      // to provide a benefit; disable to keep statements stateless.
-      prepare: false,
-      connection: { search_path: 'pm, public' },
-    });
-    sql = wrapWithColdStartRetry(raw);
+  // Inside an SSR request lifecycle, reuse the same client across nested
+  // `makeDb()` calls so the auth-runtime + route loaders share a pool.
+  let req: Request | undefined;
+  try {
+    req = getRequest();
+  } catch {
+    /* Outside a request context (workers tests, scheduled triggers,
+       background ctx.waitUntil work) — fall through to per-call client. */
   }
-  return drizzle(sql, { schema });
+  if (req) {
+    const cached = dbByRequest.get(req);
+    if (cached) return cached;
+    const fresh = drizzle(buildClient(env), { schema });
+    dbByRequest.set(req, fresh);
+    return fresh;
+  }
+  return drizzle(buildClient(env), { schema });
 }
 
 export type DB = ReturnType<typeof makeDb>;

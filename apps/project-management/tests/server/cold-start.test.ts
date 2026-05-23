@@ -90,9 +90,10 @@ describe('wrapWithColdStartRetry', () => {
     expect(unsafe).toHaveBeenCalledTimes(1);
   });
 
-  it('gives up after one retry if the second attempt also fails', async () => {
+  it('gives up after all retries if every attempt fails', async () => {
     const unsafe = vi
       .fn()
+      .mockReturnValueOnce(pendingRejected(COLD_START_ERR))
       .mockReturnValueOnce(pendingRejected(COLD_START_ERR))
       .mockReturnValueOnce(pendingRejected(COLD_START_ERR));
 
@@ -100,7 +101,8 @@ describe('wrapWithColdStartRetry', () => {
     await expect(wrapped.unsafe('SELECT 1', [])).rejects.toMatchObject({
       code: 'CONNECTION_DESTROYED',
     });
-    expect(unsafe).toHaveBeenCalledTimes(2);
+    // Three attempts total: initial + 2 retries (per COLD_START_BACKOFFS_MS).
+    expect(unsafe).toHaveBeenCalledTimes(3);
   });
 
   it('retries on array-mode (.values()) results too', async () => {

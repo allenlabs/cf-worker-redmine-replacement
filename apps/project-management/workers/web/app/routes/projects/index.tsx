@@ -1,13 +1,26 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
-import { listProjects } from '~/server/projects';
+import { createServerFn } from '@tanstack/react-start';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { listProjectsImpl } from '~/server/projects';
+
+// Inlined server fn so the loader gets a direct server-side execution.
+// (Importing the shared `listProjects` server fn and awaiting it from
+// inside another route loader was returning `undefined` — a TanStack Start
+// dispatch issue in 1.168.9.  Defining the server fn inline at the
+// callsite sidesteps it.)
+const loadProjects = createServerFn({ method: 'GET' }).handler(async () => {
+  const me = await getCurrentUser();
+  const ctx = me ? await buildAuthContext(me.id) : null;
+  return listProjectsImpl(getDb(), me, ctx);
+});
 
 export const Route = createFileRoute('/projects/')({
-  loader: () => listProjects(),
+  loader: () => loadProjects(),
   component: ProjectsListPage,
 });
 
 function ProjectsListPage() {
-  const projects = Route.useLoaderData();
+  const projects = Route.useLoaderData() ?? [];
 
   if (projects.length === 0) {
     return (

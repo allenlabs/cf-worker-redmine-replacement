@@ -13,17 +13,13 @@ export function createRouter() {
     routeTree,
     context: { queryClient, user: null },
     defaultPreload: 'intent',
-    // Wait ~300 ms before showing the pending UI so quick loads don't flash.
-    defaultPendingMs: 300,
-    defaultPendingComponent: () => (
-      <div className="flex items-center justify-center py-16 text-sm text-gray-500">
-        <span
-          aria-hidden="true"
-          className="inline-block w-4 h-4 mr-2 rounded-full border-2 border-gray-300 border-t-redmine-500 animate-spin"
-        />
-        Loading…
-      </div>
-    ),
+    // Disabled: the streaming-pending interplay causes the SSR to
+    // commit the pending component before the loader resolves; the
+    // client bundle then hydrates against a real-component tree, and
+    // useLoaderData() is undefined → component crashes.  We accept
+    // longer time-to-first-byte instead so the rendered HTML matches
+    // the eventual hydrated DOM exactly.
+    defaultPendingMs: Number.POSITIVE_INFINITY,
     defaultErrorComponent: ({ error }: { error: unknown }) => (
       <div className="p-6 text-red-700">
         <h2 className="font-semibold">Something went wrong</h2>
