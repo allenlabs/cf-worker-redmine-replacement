@@ -1,17 +1,29 @@
 import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
+import { z } from 'zod';
 import { ProgressBar } from '~/components/badges';
 import { formatDate } from '~/lib/format';
-import { getProject } from '~/server/projects';
-import { createVersion, deleteVersion, listVersions, updateVersion } from '~/server/versions';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { getProjectImpl } from '~/server/projects';
+import { createVersion, deleteVersion, listVersionsImpl, updateVersion } from '~/server/versions';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadVersions = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    const db = getDb();
+    const project = await getProjectImpl(db, me, ctx, data.identifier);
+    const versions = await listVersionsImpl(db, project.id);
+    return { versions };
+  });
+
 export const Route = createFileRoute('/projects/$identifier/versions')({
-  loader: async ({ params }) => {
-    const project = await getProject({ data: { identifier: params.identifier } });
-    return { versions: await listVersions({ data: { projectId: project.id } }) };
-  },
+  loader: ({ params }) => loadVersions({ data: { identifier: params.identifier } }),
   component: VersionsPage,
 });
 

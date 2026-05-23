@@ -1,18 +1,33 @@
 import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
+import { z } from 'zod';
 import { Markdown } from '~/components/Markdown';
 import { formatDateTime } from '~/lib/format';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
 import { renderMarkdown } from '~/server/markdown';
-import { getProject } from '~/server/projects';
-import { deleteWikiPage, getWikiPage, saveWikiPage } from '~/server/wiki';
+import { getProjectImpl } from '~/server/projects';
+import { deleteWikiPage, getWikiPageImpl, saveWikiPage } from '~/server/wiki';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadWikiPage = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) =>
+    z.object({ identifier: z.string(), slug: z.string() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    const db = getDb();
+    const project = await getProjectImpl(db, me, ctx, data.identifier);
+    return getWikiPageImpl(db, project.id, data.slug);
+  });
+
 export const Route = createFileRoute('/projects/$identifier/wiki/$slug')({
   loader: async ({ params }) => {
-    const project = await getProject({ data: { identifier: params.identifier } });
-    const data = await getWikiPage({
-      data: { projectId: project.id, slug: params.slug },
+    const data = await loadWikiPage({
+      data: { identifier: params.identifier, slug: params.slug },
     });
     const html = data.revision ? renderMarkdown(data.revision.text) : '';
     return { data, html };

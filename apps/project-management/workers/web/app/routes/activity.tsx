@@ -1,9 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
 import { timeAgo } from '~/lib/format';
-import { listActivities } from '~/server/activities';
+import { listActivitiesImpl } from '~/server/activities';
+import { getDb } from '~/server/auth-runtime.server';
+
+// Inline server fn — see routes/index.tsx for the bug context (TanStack
+// Start 1.168.9 dispatch issue: an imported `createServerFn` awaited from
+// inside a loader returns `undefined`).  Bypass via the *Impl helper.
+const loadActivities = createServerFn({ method: 'GET' }).handler(async () => {
+  return listActivitiesImpl(getDb(), { limit: 100 });
+});
 
 export const Route = createFileRoute('/activity')({
-  loader: async () => ({ activities: await listActivities({ limit: 100 }) }),
+  loader: async () => ({ activities: await loadActivities() }),
   component: ActivityPage,
 });
 

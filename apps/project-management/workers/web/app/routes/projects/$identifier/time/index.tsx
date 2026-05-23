@@ -1,15 +1,45 @@
 import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
+import { z } from 'zod';
 import { formatDate, formatHours } from '~/lib/format';
-import { getProject } from '~/server/projects';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { getProjectImpl } from '~/server/projects';
 import {
   createTimeEntry,
   deleteTimeEntry,
-  listActivities,
-  listTimeEntries,
+  listActivitiesImpl,
+  listTimeEntriesImpl,
 } from '~/server/time-entries';
 
 const parentRoute = getRouteApi('/projects/$identifier');
+
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadTime = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        identifier: z.string(),
+        from: z.string().nullable().optional(),
+        to: z.string().nullable().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    const db = getDb();
+    const project = await getProjectImpl(db, me, ctx, data.identifier);
+    const [entries, activities] = await Promise.all([
+      listTimeEntriesImpl(db, {
+        projectId: project.id,
+        from: data.from ?? null,
+        to: data.to ?? null,
+      }),
+      listActivitiesImpl(db),
+    ]);
+    return { ...entries, activities };
+  });
 
 export const Route = createFileRoute('/projects/$identifier/time/')({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -17,20 +47,14 @@ export const Route = createFileRoute('/projects/$identifier/time/')({
     to: s.to ? String(s.to) : undefined,
   }),
   loaderDeps: ({ search }) => search,
-  loader: async ({ params, deps }) => {
-    const project = await getProject({ data: { identifier: params.identifier } });
-    const [entries, activities] = await Promise.all([
-      listTimeEntries({
-        data: {
-          projectId: project.id,
-          from: deps.from ?? null,
-          to: deps.to ?? null,
-        },
-      }),
-      listActivities(),
-    ]);
-    return { ...entries, activities };
-  },
+  loader: ({ params, deps }) =>
+    loadTime({
+      data: {
+        identifier: params.identifier,
+        from: deps.from ?? null,
+        to: deps.to ?? null,
+      },
+    }),
   component: TimePage,
 });
 

@@ -1,13 +1,25 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { z } from 'zod';
 import { timeAgo } from '~/lib/format';
-import { listActivities } from '~/server/activities';
-import { getProject } from '~/server/projects';
+import { listActivitiesImpl } from '~/server/activities';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { getProjectImpl } from '~/server/projects';
+
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadProjectActivity = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    const db = getDb();
+    const project = await getProjectImpl(db, me, ctx, data.identifier);
+    const activities = await listActivitiesImpl(db, { projectId: project.id, limit: 100 });
+    return { activities };
+  });
 
 export const Route = createFileRoute('/projects/$identifier/activity')({
-  loader: async ({ params }) => {
-    const project = await getProject({ data: { identifier: params.identifier } });
-    return { activities: await listActivities({ projectId: project.id, limit: 100 }) };
-  },
+  loader: ({ params }) => loadProjectActivity({ data: { identifier: params.identifier } }),
   component: ProjectActivityPage,
 });
 

@@ -35,11 +35,29 @@ export function getDb(env: Env = getEnv()): DB {
   return makeDb(env);
 }
 
-export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const env = getEnv();
+// Request-scoped dedupe.  TanStack Start's `beforeLoad` + `loader` + any
+// nested server fns each call into these helpers — without dedupe a
+// single /projects load was doing 3 separate `users.findFirst` queries
+// (one per call site) plus the redundant lookup inside
+// `buildAuthContextImpl`.  WeakMap keyed on the in-flight Request: GC'd
+// automatically once the request handler exits.
+const userCache = new WeakMap<Request, Promise<CurrentUser | null>>();
+const ctxCache = new WeakMap<Request, Map<number, Promise<AuthContext>>>();
+
+export function getCurrentUser(): Promise<CurrentUser | null> {
   const req = getRequest();
-  const cookie = req?.headers.get('cookie') ?? null;
-  return userFromSessionImpl(getDb(env), env, cookie);
+  if (!req) {
+    const env = getEnv();
+    return userFromSessionImpl(getDb(env), env, null);
+  }
+  let p = userCache.get(req);
+  if (!p) {
+    const env = getEnv();
+    const cookie = req.headers.get('cookie') ?? null;
+    p = userFromSessionImpl(getDb(env), env, cookie);
+    userCache.set(req, p);
+  }
+  return p;
 }
 
 export async function requireUser(): Promise<CurrentUser> {
@@ -48,8 +66,32 @@ export async function requireUser(): Promise<CurrentUser> {
   return u;
 }
 
-export async function buildAuthContext(userId: number): Promise<AuthContext> {
-  return buildAuthContextImpl(getDb(), userId);
+export function buildAuthContext(userId: number): Promise<AuthContext> {
+  const req = getRequest();
+  if (!req) return buildAuthContextImpl(getDb(), userId);
+  let perReq = ctxCache.get(req);
+  if (!perReq) {
+    perReq = new Map();
+    ctxCache.set(req, perReq);
+  }
+  let p = perReq.get(userId);
+  if (!p) {
+    // If `getCurrentUser` has already resolved this user inside this
+    // request, hand its row to the impl so it can skip the redundant
+    // `users.findFirst` (saves one full Hetzner RTT per loader).
+    const cachedUser = userCache.get(req);
+    if (cachedUser) {
+      p = cachedUser.then((u) =>
+        u && u.id === userId
+          ? buildAuthContextImpl(getDb(), u)
+          : buildAuthContextImpl(getDb(), userId),
+      );
+    } else {
+      p = buildAuthContextImpl(getDb(), userId);
+    }
+    perReq.set(userId, p);
+  }
+  return p;
 }
 
 export async function requirePermission(

@@ -10,7 +10,8 @@ import { listProjectsImpl } from '~/server/projects';
 // callsite sidesteps it.)
 const loadProjects = createServerFn({ method: 'GET' }).handler(async () => {
   const me = await getCurrentUser();
-  const ctx = me ? await buildAuthContext(me.id) : null;
+  // Admins don't need the membership scan — skip it.
+  const ctx = me && !me.isAdmin ? await buildAuthContext(me.id) : null;
   return listProjectsImpl(getDb(), me, ctx);
 });
 

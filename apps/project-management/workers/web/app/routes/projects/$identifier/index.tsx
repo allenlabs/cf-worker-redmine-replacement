@@ -1,15 +1,22 @@
 import { Link, createFileRoute, getRouteApi } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
 import { ProgressBar } from '~/components/badges';
 import { Markdown } from '~/components/Markdown';
-import { listActivities } from '~/server/activities';
+import { listActivitiesImpl } from '~/server/activities';
+import { getDb } from '~/server/auth-runtime.server';
 import { renderMarkdown } from '~/server/markdown';
 import { timeAgo } from '~/lib/format';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadOverview = createServerFn({ method: 'GET' }).handler(async () => {
+  return listActivitiesImpl(getDb(), { projectId: undefined, limit: 10 });
+});
+
 export const Route = createFileRoute('/projects/$identifier/')({
   loader: async () => {
-    const activities = await listActivities({ projectId: undefined, limit: 10 });
+    const activities = await loadOverview();
     return { activities };
   },
   component: ProjectOverview,

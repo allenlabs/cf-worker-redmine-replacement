@@ -1,14 +1,25 @@
 import { Link, createFileRoute, getRouteApi } from '@tanstack/react-router';
-import { getProject } from '~/server/projects';
-import { listWikiPages } from '~/server/wiki';
+import { createServerFn } from '@tanstack/react-start';
+import { z } from 'zod';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { getProjectImpl } from '~/server/projects';
+import { listWikiPagesImpl } from '~/server/wiki';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadWikiIndex = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    const db = getDb();
+    const project = await getProjectImpl(db, me, ctx, data.identifier);
+    return listWikiPagesImpl(db, project.id);
+  });
+
 export const Route = createFileRoute('/projects/$identifier/wiki/')({
-  loader: async ({ params }) => {
-    const project = await getProject({ data: { identifier: params.identifier } });
-    return await listWikiPages({ data: { projectId: project.id } });
-  },
+  loader: ({ params }) => loadWikiIndex({ data: { identifier: params.identifier } }),
   component: WikiIndex,
 });
 

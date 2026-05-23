@@ -3,9 +3,14 @@ import { useState } from 'react';
 import { createServerFn } from '@tanstack/react-start';
 import { z } from 'zod';
 import { formatDateTime } from '~/lib/format';
-import { requirePermission, requireUser } from '~/server/auth-runtime.server';
-import { deleteAttachment, listProjectFiles, uploadAttachment } from '~/server/attachments';
-import { getProject } from '~/server/projects';
+import {
+  buildAuthContext,
+  getCurrentUser,
+  getDb,
+  requirePermission,
+} from '~/server/auth-runtime.server';
+import { deleteAttachment, listProjectFilesImpl, uploadAttachment } from '~/server/attachments';
+import { getProjectImpl } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
@@ -31,11 +36,20 @@ const handleUpload = createServerFn({ method: 'POST' })
     return { ok: true };
   });
 
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadFiles = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    const db = getDb();
+    const project = await getProjectImpl(db, me, ctx, data.identifier);
+    const files = await listProjectFilesImpl(db, project.id);
+    return { files };
+  });
+
 export const Route = createFileRoute('/projects/$identifier/files')({
-  loader: async ({ params }) => {
-    const project = await getProject({ data: { identifier: params.identifier } });
-    return { files: await listProjectFiles({ data: { projectId: project.id } }) };
-  },
+  loader: ({ params }) => loadFiles({ data: { identifier: params.identifier } }),
   component: FilesPage,
 });
 

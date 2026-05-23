@@ -27,9 +27,32 @@ export interface CurrentUser {
 
 // ---------- testable impls ----------
 
-export async function buildAuthContextImpl(db: DB, userId: number): Promise<AuthContext> {
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  if (!user) throw new UnauthorizedError();
+/**
+ * Build the permissions matrix for a user.  Two callable shapes:
+ *
+ *   - `buildAuthContextImpl(db, userId)` — looks the user up to fetch
+ *     their `admin` flag.  Used by tests and by any callsite that only
+ *     has a user id.
+ *   - `buildAuthContextImpl(db, currentUser)` — pass the already-known
+ *     CurrentUser to skip the `users.findFirst` round-trip.  Saves a
+ *     full Hetzner RTT (~150 ms) on every loader that already called
+ *     `getCurrentUser()` upstream — which is essentially every route.
+ */
+export async function buildAuthContextImpl(
+  db: DB,
+  userIdOrCurrent: number | CurrentUser,
+): Promise<AuthContext> {
+  let userId: number;
+  let isAdmin: boolean;
+  if (typeof userIdOrCurrent === 'number') {
+    userId = userIdOrCurrent;
+    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    if (!user) throw new UnauthorizedError();
+    isAdmin = user.admin;
+  } else {
+    userId = userIdOrCurrent.id;
+    isAdmin = userIdOrCurrent.isAdmin;
+  }
 
   const memberships = await db
     .select({
@@ -46,7 +69,7 @@ export async function buildAuthContextImpl(db: DB, userId: number): Promise<Auth
     for (const p of m.permissions as Permission[]) existing.add(p);
     permissionsByProject[m.projectId] = existing;
   }
-  return { userId, isAdmin: user.admin, permissionsByProject };
+  return { userId, isAdmin, permissionsByProject };
 }
 
 /**

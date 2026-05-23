@@ -1,11 +1,25 @@
 import { Link, Outlet, createFileRoute, notFound } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { z } from 'zod';
 import { ProjectSidebar } from '~/components/ProjectSidebar';
-import { getProject } from '~/server/projects';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { getProjectImpl } from '~/server/projects';
+
+// Inline server fn — see routes/index.tsx for the bug context (TanStack
+// Start 1.168.9 dispatch issue: imported `createServerFn` exports return
+// `undefined` when awaited from inside another loader).
+const loadProject = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    return getProjectImpl(getDb(), me, ctx, data.identifier);
+  });
 
 export const Route = createFileRoute('/projects/$identifier')({
   loader: async ({ params }) => {
     try {
-      return await getProject({ data: { identifier: params.identifier } });
+      return await loadProject({ data: { identifier: params.identifier } });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (/not found/i.test(message)) throw notFound();

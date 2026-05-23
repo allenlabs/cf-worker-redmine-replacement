@@ -1,14 +1,43 @@
 import { Link, createFileRoute, getRouteApi } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { z } from 'zod';
 import { PriorityBadge, StatusBadge, TrackerBadge } from '~/components/badges';
 import { formatDate, timeAgo } from '~/lib/format';
-import { listIssues } from '~/server/issues';
-import { getProject } from '~/server/projects';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { listIssuesImpl } from '~/server/issues';
+import { getProjectImpl } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
 const SEARCH = {
   status: ['open', 'closed', 'all'] as const,
 };
+
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadIssues = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        identifier: z.string(),
+        statusFilter: z.enum(['open', 'closed', 'all']),
+        q: z.string().optional(),
+        sort: z.enum(['updated', 'priority', 'id']),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    const db = getDb();
+    const project = await getProjectImpl(db, me, ctx, data.identifier);
+    const issues = await listIssuesImpl(db, {
+      projectId: project.id,
+      statusFilter: data.statusFilter,
+      q: data.q,
+      sort: data.sort,
+    });
+    return { issues };
+  });
 
 export const Route = createFileRoute('/projects/$identifier/issues/')({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -19,18 +48,15 @@ export const Route = createFileRoute('/projects/$identifier/issues/')({
     sort: s.sort ? (String(s.sort) as 'updated' | 'priority' | 'id') : 'updated',
   }),
   loaderDeps: ({ search }) => search,
-  loader: async ({ params, deps }) => {
-    const project = await getProject({ data: { identifier: params.identifier } });
-    const issues = await listIssues({
+  loader: ({ params, deps }) =>
+    loadIssues({
       data: {
-        projectId: project.id,
+        identifier: params.identifier,
         statusFilter: deps.status,
         q: deps.q,
         sort: deps.sort,
       },
-    });
-    return { issues };
-  },
+    }),
   component: IssuesIndexPage,
 });
 

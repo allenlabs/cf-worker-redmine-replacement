@@ -1,21 +1,32 @@
 import { Link, createFileRoute, getRouteApi } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { z } from 'zod';
 import { ProgressBar } from '~/components/badges';
 import { formatDate } from '~/lib/format';
-import { listIssues } from '~/server/issues';
-import { getProject } from '~/server/projects';
-import { listVersions } from '~/server/versions';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { listIssuesImpl } from '~/server/issues';
+import { getProjectImpl } from '~/server/projects';
+import { listVersionsImpl } from '~/server/versions';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
-export const Route = createFileRoute('/projects/$identifier/roadmap')({
-  loader: async ({ params }) => {
-    const project = await getProject({ data: { identifier: params.identifier } });
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadRoadmap = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    const db = getDb();
+    const project = await getProjectImpl(db, me, ctx, data.identifier);
     const [versions, issues] = await Promise.all([
-      listVersions({ data: { projectId: project.id } }),
-      listIssues({ data: { projectId: project.id, statusFilter: 'all', sort: 'id' } }),
+      listVersionsImpl(db, project.id),
+      listIssuesImpl(db, { projectId: project.id, statusFilter: 'all', sort: 'id' }),
     ]);
     return { versions, issues };
-  },
+  });
+
+export const Route = createFileRoute('/projects/$identifier/roadmap')({
+  loader: ({ params }) => loadRoadmap({ data: { identifier: params.identifier } }),
   component: RoadmapPage,
 });
 

@@ -1,19 +1,31 @@
 import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
-import { createCategory, deleteCategory, listCategories } from '~/server/categories';
-import { listMembers } from '~/server/members';
-import { getProject } from '~/server/projects';
+import { z } from 'zod';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { createCategory, deleteCategory, listCategoriesImpl } from '~/server/categories';
+import { listMembersImpl } from '~/server/members';
+import { getProjectImpl } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadCategories = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    const db = getDb();
+    const project = await getProjectImpl(db, me, ctx, data.identifier);
+    const [categories, members] = await Promise.all([
+      listCategoriesImpl(db, project.id),
+      listMembersImpl(db, project.id),
+    ]);
+    return { categories, members };
+  });
+
 export const Route = createFileRoute('/projects/$identifier/categories')({
-  loader: async ({ params }) => {
-    const project = await getProject({ data: { identifier: params.identifier } });
-    return {
-      categories: await listCategories({ data: { projectId: project.id } }),
-      members: await listMembers({ data: { projectId: project.id } }),
-    };
-  },
+  loader: ({ params }) => loadCategories({ data: { identifier: params.identifier } }),
   component: CategoriesPage,
 });
 

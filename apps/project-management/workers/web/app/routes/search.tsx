@@ -1,6 +1,18 @@
-import { Link, createFileRoute } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
 import { z } from 'zod';
-import { search } from '~/server/search';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { searchImpl } from '~/server/search';
+
+// Inline server fn — see routes/index.tsx for the bug context (TanStack
+// Start 1.168.9 dispatch issue).  Bypass via the *Impl helper.
+const runSearch = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ q: z.string().min(1) }).parse(d))
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    return searchImpl(getDb(), me, ctx, { q: data.q });
+  });
 
 export const Route = createFileRoute('/search')({
   validateSearch: (s: Record<string, unknown>) =>
@@ -8,7 +20,7 @@ export const Route = createFileRoute('/search')({
   loaderDeps: ({ search }) => search,
   loader: async ({ deps }) => {
     if (!deps.q) return { results: { issues: [], wikis: [] }, q: '' };
-    return { results: await search({ data: { q: deps.q } }), q: deps.q };
+    return { results: await runSearch({ data: { q: deps.q } }), q: deps.q };
   },
   component: SearchPage,
 });

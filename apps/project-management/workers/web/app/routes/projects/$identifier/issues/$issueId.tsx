@@ -1,19 +1,35 @@
 import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
+import { z } from 'zod';
 import { PriorityBadge, ProgressBar, StatusBadge, TrackerBadge } from '~/components/badges';
 import { Markdown } from '~/components/Markdown';
 import { formatDate, formatDateTime, formatHours } from '~/lib/format';
 import { notifyError, notifySuccess } from '~/lib/toast';
-import { getIssue, updateIssue, watchIssue } from '~/server/issues';
-import { listMembers } from '~/server/members';
+import { getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { getIssueImpl, updateIssue, watchIssue } from '~/server/issues';
+import { listMembersImpl } from '~/server/members';
 import { renderMarkdown } from '~/server/markdown';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadIssue = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ id: z.number() }).parse(d))
+  .handler(async ({ data }) => {
+    const db = getDb();
+    const me = await getCurrentUser();
+    const result = await getIssueImpl(db, data.id);
+    const members = await listMembersImpl(db, result.issue.projectId);
+    return {
+      issue: { ...result, isWatching: me ? result.watchers.includes(me.id) : false },
+      members,
+    };
+  });
+
 export const Route = createFileRoute('/projects/$identifier/issues/$issueId')({
   loader: async ({ params }) => {
-    const issue = await getIssue({ data: { id: Number(params.issueId) } });
-    const members = await listMembers({ data: { projectId: issue.issue.projectId } });
+    const { issue, members } = await loadIssue({ data: { id: Number(params.issueId) } });
     return {
       issue,
       members,

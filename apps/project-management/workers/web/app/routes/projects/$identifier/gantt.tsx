@@ -1,19 +1,31 @@
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { z } from 'zod';
 import { formatDate } from '~/lib/format';
-import { listIssues } from '~/server/issues';
-import { getProject } from '~/server/projects';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { listIssuesImpl } from '~/server/issues';
+import { getProjectImpl } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadGantt = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    const db = getDb();
+    const project = await getProjectImpl(db, me, ctx, data.identifier);
+    const issues = await listIssuesImpl(db, {
+      projectId: project.id,
+      statusFilter: 'all',
+      sort: 'id',
+    });
+    return { issues };
+  });
+
 export const Route = createFileRoute('/projects/$identifier/gantt')({
-  loader: async ({ params }) => {
-    const project = await getProject({ data: { identifier: params.identifier } });
-    return {
-      issues: await listIssues({
-        data: { projectId: project.id, statusFilter: 'all', sort: 'id' },
-      }),
-    };
-  },
+  loader: ({ params }) => loadGantt({ data: { identifier: params.identifier } }),
   component: GanttPage,
 });
 

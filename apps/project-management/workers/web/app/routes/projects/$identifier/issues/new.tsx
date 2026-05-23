@@ -1,17 +1,29 @@
 import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
+import { z } from 'zod';
 import { notifyError, notifySuccess } from '~/lib/toast';
-import { listMembers } from '~/server/members';
+import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { listMembersImpl } from '~/server/members';
 import { createIssue } from '~/server/issues';
-import { getProject } from '~/server/projects';
+import { getProjectImpl } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
+// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
+const loadNewIssueData = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const me = await getCurrentUser();
+    const ctx = me ? await buildAuthContext(me.id) : null;
+    const db = getDb();
+    const project = await getProjectImpl(db, me, ctx, data.identifier);
+    const members = await listMembersImpl(db, project.id);
+    return { members };
+  });
+
 export const Route = createFileRoute('/projects/$identifier/issues/new')({
-  loader: async ({ params }) => {
-    const project = await getProject({ data: { identifier: params.identifier } });
-    return { members: await listMembers({ data: { projectId: project.id } }) };
-  },
+  loader: ({ params }) => loadNewIssueData({ data: { identifier: params.identifier } }),
   component: NewIssuePage,
 });
 
