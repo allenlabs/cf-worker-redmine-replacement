@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { slugify } from '~/lib/format';
+import { notifyError, notifySuccess } from '~/lib/toast';
 import { getCurrentUser } from '~/server/auth-runtime.server';
 import { createProject } from '~/server/projects';
 
@@ -30,9 +31,12 @@ function NewProjectPage() {
     setError(null);
     try {
       const created = await createProject({ data: form });
+      notifySuccess('Project created');
       router.navigate({ to: '/projects/$identifier', params: { identifier: created.identifier } });
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      notifyError(`Could not create project: ${message}`);
     } finally {
       setBusy(false);
     }

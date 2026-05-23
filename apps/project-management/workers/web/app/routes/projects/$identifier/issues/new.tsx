@@ -1,14 +1,16 @@
 import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
+import { notifyError, notifySuccess } from '~/lib/toast';
 import { listMembers } from '~/server/members';
 import { createIssue } from '~/server/issues';
+import { getProject } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
 export const Route = createFileRoute('/projects/$identifier/issues/new')({
-  loader: async () => {
-    const project = await parentRoute.useLoaderData;
-    return { members: await listMembers({ data: { projectId: (project as any).id } }) };
+  loader: async ({ params }) => {
+    const project = await getProject({ data: { identifier: params.identifier } });
+    return { members: await listMembers({ data: { projectId: project.id } }) };
   },
   component: NewIssuePage,
 });
@@ -52,12 +54,15 @@ function NewIssuePage() {
           doneRatio: Number(form.doneRatio),
         },
       });
+      notifySuccess(`Issue #${created.id} created`);
       router.navigate({
         to: '/projects/$identifier/issues/$issueId',
         params: { identifier: project.identifier, issueId: String(created.id) },
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      notifyError(`Could not create issue: ${message}`);
     } finally {
       setBusy(false);
     }

@@ -1,6 +1,7 @@
 import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { formatDate } from '~/lib/format';
+import { notifyError, notifySuccess } from '~/lib/toast';
 import {
   addMember,
   changeMemberRole,
@@ -38,20 +39,35 @@ function MembersPage() {
 
   async function add() {
     if (!userId || !roleId) return;
-    await addMember({ data: { projectId: project.id, userId: Number(userId), roleId } });
-    setUserId('');
-    router.invalidate();
+    try {
+      await addMember({ data: { projectId: project.id, userId: Number(userId), roleId } });
+      setUserId('');
+      notifySuccess('Member added');
+      router.invalidate();
+    } catch (err) {
+      notifyError(`Could not add member: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   async function remove(memberId: number) {
     if (!confirm('Remove this member?')) return;
-    await removeMember({ data: { memberId, projectId: project.id } });
-    router.invalidate();
+    try {
+      await removeMember({ data: { memberId, projectId: project.id } });
+      notifySuccess('Member removed');
+      router.invalidate();
+    } catch (err) {
+      notifyError(`Could not remove member: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   async function changeRole(memberId: number, newRoleId: number) {
-    await changeMemberRole({ data: { memberId, projectId: project.id, roleId: newRoleId } });
-    router.invalidate();
+    try {
+      await changeMemberRole({ data: { memberId, projectId: project.id, roleId: newRoleId } });
+      notifySuccess('Role updated');
+      router.invalidate();
+    } catch (err) {
+      notifyError(`Could not update role: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   return (

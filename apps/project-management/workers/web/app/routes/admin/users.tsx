@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { users } from '~/db/schema';
 import { formatDateTime } from '~/lib/format';
+import { notifyError, notifySuccess } from '~/lib/toast';
 import { getDb, requireAdmin } from '~/server/auth-runtime.server';
 
 const loadUsers = createServerFn({ method: 'GET' }).handler(async () => {
@@ -62,14 +63,30 @@ function AdminUsersPage() {
                 <input
                   type="checkbox"
                   checked={u.admin}
-                  onChange={async (e) => { await setAdmin({ data: { id: u.id, admin: e.target.checked } }); router.invalidate(); }}
+                  onChange={async (e) => {
+                    try {
+                      await setAdmin({ data: { id: u.id, admin: e.target.checked } });
+                      notifySuccess('User updated');
+                      router.invalidate();
+                    } catch (err) {
+                      notifyError(`Could not update user: ${err instanceof Error ? err.message : String(err)}`);
+                    }
+                  }}
                 />
               </td>
               <td>
                 <select
                   className="select w-28"
                   value={u.status}
-                  onChange={async (e) => { await setStatus({ data: { id: u.id, status: e.target.value as any } }); router.invalidate(); }}
+                  onChange={async (e) => {
+                    try {
+                      await setStatus({ data: { id: u.id, status: e.target.value as any } });
+                      notifySuccess('User updated');
+                      router.invalidate();
+                    } catch (err) {
+                      notifyError(`Could not update user: ${err instanceof Error ? err.message : String(err)}`);
+                    }
+                  }}
                 >
                   <option value="active">active</option>
                   <option value="locked">locked</option>

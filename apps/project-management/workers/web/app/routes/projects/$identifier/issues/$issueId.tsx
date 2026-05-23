@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { PriorityBadge, ProgressBar, StatusBadge, TrackerBadge } from '~/components/badges';
 import { Markdown } from '~/components/Markdown';
 import { formatDate, formatDateTime, formatHours } from '~/lib/format';
+import { notifyError, notifySuccess } from '~/lib/toast';
 import { getIssue, updateIssue, watchIssue } from '~/server/issues';
 import { listMembers } from '~/server/members';
 import { renderMarkdown } from '~/server/markdown';
@@ -43,7 +44,10 @@ function IssuePage() {
       await updateIssue({ data: { id: i.id, notes, changes } });
       setNotes('');
       setChanges({});
+      notifySuccess('Updated');
       router.invalidate();
+    } catch (err) {
+      notifyError(`Could not update issue: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBusy(false);
     }
@@ -51,8 +55,13 @@ function IssuePage() {
 
   async function toggleWatch() {
     const am = data.issue.watchers.includes(0); // we don't have current user id here; let server decide
-    await watchIssue({ data: { id: i.id, watch: !am } });
-    router.invalidate();
+    try {
+      await watchIssue({ data: { id: i.id, watch: !am } });
+      notifySuccess(am ? 'Unwatched' : 'Watching issue');
+      router.invalidate();
+    } catch (err) {
+      notifyError(`Could not toggle watch: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   return (

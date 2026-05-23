@@ -1,5 +1,6 @@
 import { Link, useLocation } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { ToastViewport } from '~/components/ToastViewport';
 
 interface Props {
   user: { id: number; login: string; isAdmin: boolean } | null;
@@ -37,6 +38,12 @@ export function Layout({ user, appName, children }: Props) {
           </form>
           {user ? (
             <div className="flex items-center gap-3 text-sm">
+              <Link
+                to="/projects/new"
+                className="rounded-full bg-white/15 hover:bg-white/25 text-white px-3 py-1 text-sm font-medium no-underline"
+              >
+                + New
+              </Link>
               <span className="text-redmine-50">{user.login}</span>
               <a href="/auth/logout" className="text-white/90 hover:text-white">Logout</a>
             </div>
@@ -48,6 +55,7 @@ export function Layout({ user, appName, children }: Props) {
         </div>
       </header>
       <main className="max-w-7xl w-full mx-auto px-4 py-6 flex-1">{children}</main>
+      <ToastViewport />
       <footer className="text-center text-xs text-gray-500 py-4">
         Powered by Cloudflare Workers · TanStack Start · D1 · R2
       </footer>

@@ -1,5 +1,6 @@
 import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
+import { notifyError, notifySuccess } from '~/lib/toast';
 import { deleteProject, updateProject } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
@@ -26,16 +27,25 @@ function SettingsPage() {
     setBusy(true); setErr(null);
     try {
       await updateProject({ data: { id: project.id, ...form } });
+      notifySuccess('Settings saved');
       router.invalidate();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setErr(message);
+      notifyError(`Could not save settings: ${message}`);
     } finally { setBusy(false); }
   }
 
   async function destroy() {
     if (!confirm(`Permanently delete project "${project.name}"? This cannot be undone.`)) return;
-    await deleteProject({ data: { id: project.id } });
-    router.navigate({ to: '/projects' });
+    try {
+      await deleteProject({ data: { id: project.id } });
+      notifySuccess('Project deleted');
+      router.navigate({ to: '/projects' });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      notifyError(`Could not delete project: ${message}`);
+    }
   }
 
   return (

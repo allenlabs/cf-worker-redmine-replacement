@@ -26,6 +26,7 @@ function renderAt(
   const stubs = [
     '/',
     '/projects',
+    '/projects/new',
     '/activity',
     '/my/page',
     '/admin/users',
@@ -62,6 +63,14 @@ describe('Layout', () => {
   it('shows Sign in when signed out', async () => {
     renderAt('/', null);
     expect(await screen.findByText('Sign in')).toBeInTheDocument();
+    expect(screen.queryByText('+ New')).not.toBeInTheDocument();
+  });
+
+  it('shows the + New pill when signed in', async () => {
+    renderAt('/', { id: 1, login: 'alice', isAdmin: false });
+    const pill = await screen.findByText('+ New');
+    expect(pill).toBeInTheDocument();
+    expect(pill.getAttribute('href')).toContain('/projects/new');
   });
 
   it('shows the Admin link only for admins', async () => {

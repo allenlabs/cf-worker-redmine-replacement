@@ -1,7 +1,7 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { and, desc, eq, sql } from 'drizzle-orm';
-import { issuePriorities, issueStatuses, issues, projects, trackers, users, watchers } from '~/db/schema';
+import { and, desc, eq } from 'drizzle-orm';
+import { issuePriorities, issueStatuses, issues, projects, trackers, watchers } from '~/db/schema';
 import { PriorityBadge, StatusBadge, TrackerBadge } from '~/components/badges';
 import { formatDate, timeAgo } from '~/lib/format';
 import { getCurrentUser, getDb } from '~/server/auth-runtime.server';
@@ -72,7 +72,13 @@ const loadMyPage = createServerFn({ method: 'GET' }).handler(async () => {
 
   const recent = await listActivities({ limit: 15 });
 
-  return { me, myAssigned, myReported, watched, recent };
+  return {
+    me,
+    myAssigned: myAssigned ?? [],
+    myReported: myReported ?? [],
+    watched: watched ?? [],
+    recent: recent ?? [],
+  };
 });
 
 export const Route = createFileRoute('/my/page')({
@@ -88,6 +94,25 @@ function MyPagePage() {
   const data = Route.useLoaderData();
   if (!data) return null;
   const { myAssigned, myReported, watched, recent } = data;
+
+  const everythingEmpty =
+    myAssigned.length === 0 && myReported.length === 0 && watched.length === 0;
+
+  if (everythingEmpty) {
+    return (
+      <section className="card p-10 max-w-2xl mx-auto text-center">
+        <h1 className="text-2xl font-semibold mb-3">Your page is empty</h1>
+        <p className="text-sm text-gray-600 mb-6">
+          You have no assigned issues yet. Browse projects to find something to
+          work on, or report a new issue inside a project.
+        </p>
+        <Link to="/projects" className="btn-primary">
+          Browse projects
+        </Link>
+      </section>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <section className="card p-4">
@@ -149,14 +174,18 @@ function MyPagePage() {
 
       <section className="card p-4">
         <h2 className="font-semibold mb-2">Latest activity</h2>
-        <ul className="text-sm space-y-2">
-          {recent.map((a) => (
-            <li key={a.id}>
-              <div>{a.title}</div>
-              <div className="text-xs text-gray-500">{a.projectName ? `${a.projectName} · ` : ''}{timeAgo(a.createdAt)}</div>
-            </li>
-          ))}
-        </ul>
+        {recent.length === 0 ? (
+          <p className="text-sm text-gray-500">Nothing yet.</p>
+        ) : (
+          <ul className="text-sm space-y-2">
+            {recent.map((a) => (
+              <li key={a.id}>
+                <div>{a.title}</div>
+                <div className="text-xs text-gray-500">{a.projectName ? `${a.projectName} · ` : ''}{timeAgo(a.createdAt)}</div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

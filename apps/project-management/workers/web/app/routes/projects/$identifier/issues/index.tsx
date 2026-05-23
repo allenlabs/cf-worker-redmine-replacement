@@ -94,7 +94,23 @@ function IssuesIndexPage() {
       </div>
 
       {issues.length === 0 ? (
-        <p className="text-sm text-gray-500">No issues match these filters.</p>
+        search.status === 'open' && !search.q ? (
+          <section className="card p-8 text-center">
+            <h3 className="text-lg font-semibold mb-2">No issues yet</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Track bugs, features, and tasks here. Create the first issue to get started.
+            </p>
+            <Link
+              to="/projects/$identifier/issues/new"
+              params={{ identifier: project.identifier }}
+              className="btn-primary"
+            >
+              + New issue
+            </Link>
+          </section>
+        ) : (
+          <p className="text-sm text-gray-500">No issues match these filters.</p>
+        )
       ) : (
         <table className="data-table card">
           <thead>

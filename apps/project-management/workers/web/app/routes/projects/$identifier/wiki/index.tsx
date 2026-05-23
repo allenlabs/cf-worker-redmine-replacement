@@ -1,12 +1,13 @@
 import { Link, createFileRoute, getRouteApi } from '@tanstack/react-router';
+import { getProject } from '~/server/projects';
 import { listWikiPages } from '~/server/wiki';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
 export const Route = createFileRoute('/projects/$identifier/wiki/')({
-  loader: async () => {
-    const project = await parentRoute.useLoaderData;
-    return await listWikiPages({ data: { projectId: (project as any).id } });
+  loader: async ({ params }) => {
+    const project = await getProject({ data: { identifier: params.identifier } });
+    return await listWikiPages({ data: { projectId: project.id } });
   },
   component: WikiIndex,
 });
@@ -21,13 +22,25 @@ function WikiIndex() {
         <Link
           className="btn-primary"
           to="/projects/$identifier/wiki/$slug"
-          params={{ identifier: project.identifier, slug: 'new-page' }}
+          params={{ identifier: project.identifier, slug: 'index' }}
         >
           + New page
         </Link>
       </header>
       {pages.length === 0 ? (
-        <p className="text-sm text-gray-500">No pages yet. Create the first page.</p>
+        <section className="card p-8 text-center">
+          <h3 className="text-lg font-semibold mb-2">No wiki pages yet</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Start a knowledge base for this project with an index page.
+          </p>
+          <Link
+            className="btn-primary"
+            to="/projects/$identifier/wiki/$slug"
+            params={{ identifier: project.identifier, slug: 'index' }}
+          >
+            Create the index page
+          </Link>
+        </section>
       ) : (
         <ul className="card divide-y divide-gray-100">
           {pages.map((p) => (
