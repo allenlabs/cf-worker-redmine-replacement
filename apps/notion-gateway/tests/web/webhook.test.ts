@@ -112,6 +112,47 @@ describe('handleWebhookImpl — verification handshake', () => {
     });
     expect(out.status).toBe(401);
   });
+
+  it('accepts a verification handshake whose signature HMACs with the carried token', async () => {
+    const db = await makeTestDb();
+    const token = 'secret_handshake-token';
+    const body = JSON.stringify({ verification_token: token });
+    const sig = await hmacSha256Hex(token, body);
+    const out = await handleWebhookImpl(db, {
+      rawBody: body,
+      signatureHeader: `sha256=${sig}`,
+    });
+    expect(out.status).toBe(200);
+    expect(out.fanned).toBe(false);
+    const rows = await db.select().from(webhookSubscriptions);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.verificationToken).toBe(token);
+  });
+
+  it('rejects a verification handshake whose signature does not HMAC the carried token', async () => {
+    const db = await makeTestDb();
+    const body = JSON.stringify({ verification_token: 'real-token' });
+    const sig = await hmacSha256Hex('different-token', body);
+    const out = await handleWebhookImpl(db, {
+      rawBody: body,
+      signatureHeader: `sha256=${sig}`,
+    });
+    expect(out.status).toBe(401);
+    expect(JSON.parse(out.body).error).toBe('bad verification signature');
+    const rows = await db.select().from(webhookSubscriptions);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('rejects a verification handshake whose signature header is not sha256= scheme', async () => {
+    const db = await makeTestDb();
+    const body = JSON.stringify({ verification_token: 'tok' });
+    const out = await handleWebhookImpl(db, {
+      rawBody: body,
+      signatureHeader: 'md5=deadbeef',
+    });
+    expect(out.status).toBe(401);
+    expect(JSON.parse(out.body).error).toBe('bad signature scheme');
+  });
 });
 
 describe('handleWebhookImpl — signature verification', () => {

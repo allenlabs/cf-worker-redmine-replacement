@@ -2,11 +2,16 @@
 //
 // Notion's webhook lifecycle has two distinct shapes:
 //
-//   1. Initial verification.  The first POST is unsigned and carries a
-//      JSON body `{ "verification_token": "<secret>" }`.  We persist the
-//      token with status='pending' and surface it in the admin UI; the
-//      operator pastes it back into the Notion app form to complete
-//      registration.
+//   1. Verification handshake.  POST body `{ "verification_token": "<T>" }`.
+//      Notion ALSO sends `X-Notion-Signature: sha256=HMAC(body, T)` —
+//      the signature is computed using the very token being registered,
+//      which lets us authenticate the request without prior shared
+//      state.  We verify that, then persist `T` with status='pending'
+//      and surface it in the admin UI; the operator pastes it back into
+//      Notion's form to complete registration.  (Empirically discovered
+//      via wrangler tail: Notion's docs initially suggested handshakes
+//      were unsigned, but the actual product sends `X-Notion-Signature`
+//      from request 1.)
 //
 //   2. Operational events.  Subsequent POSTs include
 //      `X-Notion-Signature: sha256=<hex>` where <hex> is the
@@ -137,8 +142,24 @@ export async function handleWebhookImpl(
   }
 
   // ---------- (1) verification handshake ----------
-  if (!input.signatureHeader && typeof parsed.verification_token === 'string') {
+  // Detected by `verification_token` being a string in the body — Notion
+  // sends the signature header on these too, so we can't use the header's
+  // presence to discriminate operational events from handshakes.
+  if (typeof parsed.verification_token === 'string') {
     const token = parsed.verification_token;
+    // If a signature header is present, it must HMAC-match using the
+    // body's own token — this proves the request is from Notion before
+    // we trust the token enough to store it.
+    if (input.signatureHeader) {
+      const expected = parseSignatureHeader(input.signatureHeader);
+      if (!expected) {
+        return { status: 401, body: '{"error":"bad signature scheme"}', fanned: false };
+      }
+      const candidate = await hmacHex(token, input.rawBody);
+      if (!constantTimeEqual(candidate, expected)) {
+        return { status: 401, body: '{"error":"bad verification signature"}', fanned: false };
+      }
+    }
     await db.insert(webhookSubscriptions).values({ verificationToken: token });
     return { status: 200, body: '', fanned: false };
   }
