@@ -64,9 +64,9 @@ export async function userFromSessionImpl(
   if (!token) return null;
   const payload = await verifySessionToken(env, token);
   if (!payload) return null;
-  const row = await db.query.users.findFirst({
-    where: eq(users.betterAuthUserId, payload.sub),
-  });
+  const row = await withColdStartRetry(() =>
+    db.query.users.findFirst({ where: eq(users.betterAuthUserId, payload.sub) }),
+  );
   if (!row || row.status !== 'active') return null;
   return {
     id: row.id,
@@ -98,10 +98,13 @@ export async function findOrCreateUserBySsoImpl(
 ): Promise<CurrentUser> {
   const email = payload.email?.toLowerCase().trim();
 
-  // 1. Direct link by better_auth_user_id.
-  const linked = await db.query.users.findFirst({
-    where: eq(users.betterAuthUserId, payload.sub),
-  });
+  // 1. Direct link by better_auth_user_id.  Retry once on connection-level
+  // errors — Hyperdrive's first query after a cold isolate boot occasionally
+  // throws before the pool is fully connected; the next attempt always
+  // succeeds.  See `withColdStartRetry` below.
+  const linked = await withColdStartRetry(() =>
+    db.query.users.findFirst({ where: eq(users.betterAuthUserId, payload.sub) }),
+  );
   if (linked) return toCurrentUser(linked);
 
   // 2. Existing user matched by email — backfill the link.
@@ -156,6 +159,23 @@ async function pickAvailableLogin(db: DB, base: string): Promise<string> {
   // Astronomically unlikely; bail with a timestamp suffix.
   /* v8 ignore next */
   return `${base}${Date.now()}`;
+}
+
+/**
+ * Run a DB query; if it throws synchronously-resembling-connection-error
+ * (Hyperdrive cold-start race, postgres.js socket reset), wait a moment and
+ * try once more.  Real query errors propagate after the second attempt.
+ */
+async function withColdStartRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[withColdStartRetry] first attempt failed:', msg.slice(0, 300));
+    // Small backoff so the next connect attempt isn't pile-driving the pool.
+    await new Promise((r) => setTimeout(r, 100));
+    return await fn();
+  }
 }
 
 function toCurrentUser(row: typeof users.$inferSelect): CurrentUser {
