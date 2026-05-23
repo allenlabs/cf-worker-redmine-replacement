@@ -62,6 +62,14 @@ export function readSessionToken(cookieString: string | null): string | null {
   return null;
 }
 
+export function cookieHeader(token: string): string {
+  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`;
+}
+
+export function clearCookieHeader(): string {
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+}
+
 // Test seam — wrangler integration tests pre-seed an in-memory JWKS so
 // they don't have to mock /.well-known/jwks.json over HTTP.
 export function _setJwksForTests(

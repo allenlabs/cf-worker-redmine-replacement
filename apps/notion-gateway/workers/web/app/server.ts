@@ -15,7 +15,12 @@ import {
   startOAuthImpl,
   type AdminWorkspaceRow,
 } from './server/oauth';
-import { readSessionToken, verifySessionToken } from './server/session';
+import {
+  clearCookieHeader,
+  cookieHeader,
+  readSessionToken,
+  verifySessionToken,
+} from './server/session';
 import {
   handleWebhookImpl,
   listWebhookAdminImpl,
@@ -83,9 +88,64 @@ async function requireAdmin(c: AppContext): Promise<boolean> {
 }
 
 function loginRedirect(c: AppContext): Response {
-  const back = encodeURIComponent(c.req.url);
-  return c.redirect(`${c.env.AUTH_WEB_URL}/sign-in?redirect=${back}`, 302);
+  // Send the browser to our own /auth/login which knows how to build the
+  // right return_to URL for auth.allen.company.  Preserving the originally
+  // requested URL in `next` so /auth/callback can bounce back to it after
+  // the round-trip.
+  const url = new URL(c.req.url);
+  const next = url.pathname + url.search;
+  return c.redirect(`/auth/login?next=${encodeURIComponent(next)}`, 302);
 }
+
+// ---------- SSO entry points ----------
+
+app.get('/auth/login', (c) => {
+  const url = new URL(c.req.url);
+  const next = url.searchParams.get('next') ?? '/';
+  const callback = new URL('/auth/callback', c.env.PUBLIC_BASE_URL);
+  if (next && next.startsWith('/')) callback.searchParams.set('next', next);
+  const target = new URL('/sign-in', c.env.AUTH_WEB_URL);
+  target.searchParams.set('return_to', callback.href);
+  return c.redirect(target.href, 302);
+});
+
+app.get('/auth/callback', async (c) => {
+  const url = new URL(c.req.url);
+  const code = url.searchParams.get('code');
+  const next = url.searchParams.get('next');
+  if (!code) return c.redirect('/auth/login', 302);
+
+  const exchangeRes = await fetch(`${c.env.AUTH_API_URL}/sso/exchange`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      code,
+      client_id: new URL(c.env.PUBLIC_BASE_URL).origin,
+    }),
+  });
+  if (exchangeRes.status !== 200) {
+    const detail = await exchangeRes.text().catch(() => '');
+    return c.text(`Sign-in exchange failed: ${detail.slice(0, 200)}`, 400);
+  }
+  const { token } = (await exchangeRes.json()) as { token?: string };
+  if (!token) return c.text('Sign-in exchange returned no token', 500);
+
+  const payload = await verifySessionToken(c.env, token);
+  if (!payload) return c.text('Issued JWT failed local verification', 500);
+
+  const dest = next && next.startsWith('/') ? next : '/';
+  return new Response(null, {
+    status: 302,
+    headers: { location: dest, 'set-cookie': cookieHeader(token) },
+  });
+});
+
+app.get('/auth/logout', (c) => {
+  return new Response(null, {
+    status: 302,
+    headers: { location: '/', 'set-cookie': clearCookieHeader() },
+  });
+});
 
 // ---------- Admin landing ----------
 

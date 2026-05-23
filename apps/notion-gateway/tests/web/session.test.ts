@@ -3,6 +3,8 @@ import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type createRemo
 import {
   _clearJwksCacheForTests,
   _setJwksForTests,
+  clearCookieHeader,
+  cookieHeader,
   readSessionToken,
   verifySessionToken,
 } from '../../workers/web/app/server/session';
@@ -103,5 +105,14 @@ describe('verifySessionToken', () => {
       .setExpirationTime(Math.floor(Date.now() / 1000) + 60)
       .sign(privateKey);
     expect(await verifySessionToken(ENV, bad)).toBeNull();
+  });
+
+  it('builds Set-Cookie headers for session and clearing', () => {
+    expect(cookieHeader('abc.def')).toContain('cfr_session=abc.def');
+    expect(cookieHeader('abc.def')).toContain('HttpOnly');
+    expect(cookieHeader('abc.def')).toContain('Secure');
+    expect(cookieHeader('abc.def')).toMatch(/Max-Age=\d+/);
+    expect(clearCookieHeader()).toContain('cfr_session=;');
+    expect(clearCookieHeader()).toContain('Max-Age=0');
   });
 });
