@@ -42,7 +42,6 @@ interface MyPagePayload {
 }
 
 const loadMyPage = createServerFn({ method: 'GET' }).handler(async () => {
-  const t0 = Date.now();
   // Verify the session JWT (cached JWKS) — no DB hit yet.  We resolve
   // the local users row INSIDE the main CTE query so the entire
   // loader is one Hetzner round-trip instead of (getCurrentUser DB)
@@ -55,10 +54,8 @@ const loadMyPage = createServerFn({ method: 'GET' }).handler(async () => {
   const payload = await verifySessionToken(env, token);
   if (!payload?.sub) return null;
   const sub = payload.sub;
-  const t1 = Date.now();
 
   const db = getDb();
-  const tQ = Date.now();
   const result = (await db.execute(
     sql`
   WITH
@@ -130,7 +127,6 @@ const loadMyPage = createServerFn({ method: 'GET' }).handler(async () => {
   ) AS data
     `,
   )) as unknown;
-  const tQEnd = Date.now();
   const arr = Array.isArray(result) ? result : (result as { rows?: unknown[] }).rows;
   type MyPageDataWithUser = MyPagePayload & {
     me: { id: number; login: string; email: string; firstname: string; lastname: string; isAdmin: boolean; avatarUrl: string | null } | null;
@@ -139,8 +135,6 @@ const loadMyPage = createServerFn({ method: 'GET' }).handler(async () => {
     arr && arr.length > 0
       ? ((arr[0] as { data?: MyPageDataWithUser }).data ?? null)
       : null;
-  console.log(`[perf /my/page] jwt=${t1-t0}ms sql=${tQEnd-tQ}ms total=${tQEnd-t0}ms`);
-
   if (!data?.me) return null;
   return {
     me: data.me,
