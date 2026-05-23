@@ -2,13 +2,13 @@
   "name": "@cf-worker-apps/project-management",
   "version": "0.1.0",
   "private": true,
-  "description": "Project / issue management app — TanStack Start SSR worker + cron cleanup worker, sharing the same D1/R2.",
+  "description": "Project / issue management app \u2014 TanStack Start SSR worker + cron cleanup worker, sharing the same D1/R2.",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
     "build:cleanup": "echo 'cleanup worker is plain TS; no bundle step needed for wrangler'",
-    "deploy:web": "npm run build && wrangler deploy",
+    "deploy:web": "npm run build && npm run build:patch && wrangler deploy",
     "deploy:cleanup": "wrangler deploy --config workers/cleanup/wrangler.toml",
     "deploy": "npm run deploy:web && npm run deploy:cleanup",
     "routes:generate": "tanstack-router-cli generate",
@@ -22,7 +22,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --project=node --project=jsdom --coverage",
-    "test:workers": "vitest run --project=workers"
+    "test:workers": "vitest run --project=workers",
+    "build:patch": "node scripts/patch-worker-manifest.mjs"
   },
   "dependencies": {
     "@microlabs/otel-cf-workers": "^1.0.0-rc.52",
