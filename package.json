@@ -14,10 +14,13 @@
     "test:pm": "npm run -w @cf-worker-apps/project-management test",
     "test:url": "npm run -w @cf-worker-apps/url-shortener test",
     "test:relay": "npm run -w @cf-worker-apps/webhook-relay test",
+    "test:notion": "npm run -w @cf-worker-apps/notion-gateway test",
     "dev:pm": "npm run -w @cf-worker-apps/project-management dev",
     "dev:url": "npm run -w @cf-worker-apps/url-shortener dev",
     "dev:relay:ingest": "npm run -w @cf-worker-apps/webhook-relay dev:ingest",
-    "dev:relay:relay": "npm run -w @cf-worker-apps/webhook-relay dev:relay"
+    "dev:relay:relay": "npm run -w @cf-worker-apps/webhook-relay dev:relay",
+    "dev:notion:api": "npm run -w @cf-worker-apps/notion-gateway dev:api",
+    "dev:notion:web": "npm run -w @cf-worker-apps/notion-gateway dev:web"
   },
   "engines": {
     "node": ">=20"
