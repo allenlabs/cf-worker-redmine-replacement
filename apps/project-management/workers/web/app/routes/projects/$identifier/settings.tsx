@@ -1,4 +1,4 @@
-import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
+import { Link, createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { notifyError, notifySuccess } from '~/lib/toast';
 import { deleteProject, updateProject } from '~/server/projects';
@@ -65,6 +65,18 @@ function SettingsPage() {
         {err ? <p className="text-sm text-red-700">{err}</p> : null}
         <button className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
       </form>
+
+      <div className="card p-6">
+        <h3 className="font-semibold">Integrations</h3>
+        <p className="text-sm text-gray-600 my-2">Connect this project to external tools.</p>
+        <Link
+          to="/projects/$identifier/settings/integrations"
+          params={{ identifier: project.identifier }}
+          className="btn-primary inline-block"
+        >
+          Notion sync
+        </Link>
+      </div>
 
       <div className="card p-6 border-red-200">
         <h3 className="font-semibold text-red-700">Danger zone</h3>

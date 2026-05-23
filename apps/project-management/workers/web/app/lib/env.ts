@@ -32,4 +32,10 @@ export interface Env {
   OTEL_ACCESS_ID: string;
   OTEL_ACCESS_SECRET: string;
   OTEL_BEARER_TOKEN: string;
+
+  // Notion integration — populated via `wrangler secret put NOTION_TOKEN`.
+  // Internal-integration token; the integration must be invited to each
+  // Database the user wants to sync.  Optional: when missing the
+  // Integrations settings page renders a setup nudge instead of failing.
+  NOTION_TOKEN?: string;
 }

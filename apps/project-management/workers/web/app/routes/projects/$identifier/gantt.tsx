@@ -1,15 +1,16 @@
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { formatDate } from '~/lib/format';
 import { listIssues } from '~/server/issues';
+import { getProject } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
 export const Route = createFileRoute('/projects/$identifier/gantt')({
-  loader: async () => {
-    const project = await parentRoute.useLoaderData;
+  loader: async ({ params }) => {
+    const project = await getProject({ data: { identifier: params.identifier } });
     return {
       issues: await listIssues({
-        data: { projectId: (project as any).id, statusFilter: 'all', sort: 'id' },
+        data: { projectId: project.id, statusFilter: 'all', sort: 'id' },
       }),
     };
   },

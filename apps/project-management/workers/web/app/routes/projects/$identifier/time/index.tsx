@@ -1,6 +1,7 @@
 import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { formatDate, formatHours } from '~/lib/format';
+import { getProject } from '~/server/projects';
 import {
   createTimeEntry,
   deleteTimeEntry,
@@ -16,12 +17,12 @@ export const Route = createFileRoute('/projects/$identifier/time/')({
     to: s.to ? String(s.to) : undefined,
   }),
   loaderDeps: ({ search }) => search,
-  loader: async ({ deps }) => {
-    const project = await parentRoute.useLoaderData;
+  loader: async ({ params, deps }) => {
+    const project = await getProject({ data: { identifier: params.identifier } });
     const [entries, activities] = await Promise.all([
       listTimeEntries({
         data: {
-          projectId: (project as any).id,
+          projectId: project.id,
           from: deps.from ?? null,
           to: deps.to ?? null,
         },

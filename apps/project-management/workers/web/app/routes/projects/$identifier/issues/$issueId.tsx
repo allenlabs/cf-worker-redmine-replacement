@@ -14,7 +14,6 @@ export const Route = createFileRoute('/projects/$identifier/issues/$issueId')({
   loader: async ({ params }) => {
     const issue = await getIssue({ data: { id: Number(params.issueId) } });
     const members = await listMembers({ data: { projectId: issue.issue.projectId } });
-    const { schema: _ignored } = await import('~/db/client');
     return {
       issue,
       members,
@@ -54,7 +53,7 @@ function IssuePage() {
   }
 
   async function toggleWatch() {
-    const am = data.issue.watchers.includes(0); // we don't have current user id here; let server decide
+    const am = data.issue.isWatching;
     try {
       await watchIssue({ data: { id: i.id, watch: !am } });
       notifySuccess(am ? 'Unwatched' : 'Watching issue');
@@ -79,7 +78,9 @@ function IssuePage() {
               : ''}
           </p>
         </div>
-        <button className="btn" onClick={toggleWatch}>👀 Watch</button>
+        <button className="btn" onClick={toggleWatch}>
+          {data.issue.isWatching ? 'Unwatch' : 'Watch'}
+        </button>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

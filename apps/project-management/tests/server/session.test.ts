@@ -88,6 +88,23 @@ describe('verifySessionToken (RS256 / JWKS)', () => {
     // Restore the original test JWKS for any later tests in this file.
     await primeJwks(env);
   });
+
+  it('logs and returns null when verification throws a non-Error value', async () => {
+    // The catch's `console.error` uses a ternary that has a non-Error
+    // branch: `err instanceof Error ? ... : String(err)`.  Force jwtVerify
+    // to throw a bare string so that branch runs.
+    const env = makeTestEnv();
+    const { _setJwksForTests } = await import('~/server/session');
+    // A JWKS callable that throws a string — non-Error throw values are
+    // rare but legal and our catch must handle them.
+    _setJwksForTests(env.AUTH_API_URL, (() => {
+      throw 'opaque-non-error-failure';
+    }) as never);
+    const dummyToken = 'eyJhbGciOiJSUzI1NiJ9.e30.sig';
+    expect(await verifySessionToken(env, dummyToken)).toBeNull();
+    // Restore the original test JWKS for any later tests in this file.
+    await primeJwks(env);
+  });
 });
 
 describe('revokeSession', () => {

@@ -10,15 +10,15 @@ import {
   listRoles,
   removeMember,
 } from '~/server/members';
+import { getProject } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
 export const Route = createFileRoute('/projects/$identifier/members')({
-  loader: async () => {
-    const project = await parentRoute.useLoaderData;
-    const projectId = (project as any).id;
+  loader: async ({ params }) => {
+    const project = await getProject({ data: { identifier: params.identifier } });
     const [members, users, roles] = await Promise.all([
-      listMembers({ data: { projectId } }),
+      listMembers({ data: { projectId: project.id } }),
       listAllUsers(),
       listRoles(),
     ]);

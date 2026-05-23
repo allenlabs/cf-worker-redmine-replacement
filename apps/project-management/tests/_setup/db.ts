@@ -16,10 +16,12 @@ export type TestDB = DB;
 const ROOT = join(__dirname, '..', '..');
 const MIGRATION = readFileSync(join(ROOT, 'drizzle-pg', '0001_initial.sql'), 'utf8');
 const SEED = readFileSync(join(ROOT, 'drizzle-pg', '0002_seed.sql'), 'utf8');
+const NOTION_MIGRATION = readFileSync(join(ROOT, 'drizzle-pg', '0003_notion.sql'), 'utf8');
 
 export async function makeTestDb(opts?: { seed?: boolean }): Promise<TestDB> {
   const pglite = new PGlite();
   await pglite.exec(MIGRATION);
+  await pglite.exec(NOTION_MIGRATION);
   if (opts?.seed !== false) await pglite.exec(SEED);
   // The migration sets search_path inline, but it scopes to the session that
   // executed the DDL. Re-pin it on the live connection so helper inserts

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { formatDateTime } from '~/lib/format';
 import { requirePermission, requireUser } from '~/server/auth-runtime.server';
 import { deleteAttachment, listProjectFiles, uploadAttachment } from '~/server/attachments';
+import { getProject } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
@@ -31,9 +32,9 @@ const handleUpload = createServerFn({ method: 'POST' })
   });
 
 export const Route = createFileRoute('/projects/$identifier/files')({
-  loader: async () => {
-    const project = await parentRoute.useLoaderData;
-    return { files: await listProjectFiles({ data: { projectId: (project as any).id } }) };
+  loader: async ({ params }) => {
+    const project = await getProject({ data: { identifier: params.identifier } });
+    return { files: await listProjectFiles({ data: { projectId: project.id } }) };
   },
   component: FilesPage,
 });

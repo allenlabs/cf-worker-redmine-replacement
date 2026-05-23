@@ -491,6 +491,51 @@ export const enabledModules = pm.table(
   }),
 );
 
+// ---------- Notion integration ----------
+//
+// Per-project mapping of a PM project onto a Notion Database.  Both the
+// database id and a snapshot of the mapping (which Notion property each PM
+// field is written to) are persisted so the push path doesn't need to
+// re-fetch the Database schema on every issue write.
+
+export type NotionMapping = {
+  fields: Record<
+    string,
+    { propertyId: string; propertyName: string; propertyType: string } | null
+  >;
+};
+
+export const notionConnections = pm.table('notion_connections', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id')
+    .notNull()
+    .references(() => projects.id, { onDelete: 'cascade' })
+    .unique(),
+  databaseId: text('database_id').notNull(),
+  databaseTitle: text('database_title').notNull(),
+  mapping: jsonb('mapping').$type<NotionMapping>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .default(sql`now()`),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .default(sql`now()`),
+});
+
+export const notionIssueLinks = pm.table(
+  'notion_issue_links',
+  {
+    issueId: integer('issue_id')
+      .notNull()
+      .references(() => issues.id, { onDelete: 'cascade' }),
+    pageId: text('page_id').notNull(),
+    syncedAt: timestamp('synced_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.issueId] }) }),
+);
+
 // ---------- Types ----------
 
 export type User = typeof users.$inferSelect;
@@ -504,3 +549,5 @@ export type TimeEntry = typeof timeEntries.$inferSelect;
 export type Activity = typeof activities.$inferSelect;
 export type WikiPage = typeof wikiPages.$inferSelect;
 export type Attachment = typeof attachments.$inferSelect;
+export type NotionConnection = typeof notionConnections.$inferSelect;
+export type NotionIssueLink = typeof notionIssueLinks.$inferSelect;

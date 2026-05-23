@@ -2,6 +2,7 @@ import { Link, createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { PriorityBadge, StatusBadge, TrackerBadge } from '~/components/badges';
 import { formatDate, timeAgo } from '~/lib/format';
 import { listIssues } from '~/server/issues';
+import { getProject } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
@@ -19,10 +20,10 @@ export const Route = createFileRoute('/projects/$identifier/issues/')({
   }),
   loaderDeps: ({ search }) => search,
   loader: async ({ params, deps }) => {
-    const project = await parentRoute.useLoaderData;
+    const project = await getProject({ data: { identifier: params.identifier } });
     const issues = await listIssues({
       data: {
-        projectId: Number((project as any)?.id ?? 0) || (await loadId(params.identifier)),
+        projectId: project.id,
         statusFilter: deps.status,
         q: deps.q,
         sort: deps.sort,
@@ -32,12 +33,6 @@ export const Route = createFileRoute('/projects/$identifier/issues/')({
   },
   component: IssuesIndexPage,
 });
-
-async function loadId(identifier: string): Promise<number> {
-  const { getProject } = await import('~/server/projects');
-  const p = await getProject({ data: { identifier } });
-  return p.id;
-}
 
 function IssuesIndexPage() {
   const project = parentRoute.useLoaderData();

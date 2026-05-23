@@ -3,15 +3,16 @@ import { useState } from 'react';
 import { Markdown } from '~/components/Markdown';
 import { formatDateTime } from '~/lib/format';
 import { renderMarkdown } from '~/server/markdown';
+import { getProject } from '~/server/projects';
 import { deleteWikiPage, getWikiPage, saveWikiPage } from '~/server/wiki';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
 export const Route = createFileRoute('/projects/$identifier/wiki/$slug')({
   loader: async ({ params }) => {
-    const project = await parentRoute.useLoaderData;
+    const project = await getProject({ data: { identifier: params.identifier } });
     const data = await getWikiPage({
-      data: { projectId: (project as any).id, slug: params.slug },
+      data: { projectId: project.id, slug: params.slug },
     });
     const html = data.revision ? renderMarkdown(data.revision.text) : '';
     return { data, html };

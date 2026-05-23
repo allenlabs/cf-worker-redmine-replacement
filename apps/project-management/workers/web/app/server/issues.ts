@@ -18,7 +18,8 @@ import {
 import { ForbiddenError } from '~/lib/permissions';
 import { logActivityImpl } from './activities';
 import { type CurrentUser } from './auth';
-import { buildAuthContext, getDb, getCurrentUser, requirePermission, requireUser } from './auth-runtime.server';
+import { buildAuthContext, getDb, getCurrentUser, getEnv, requirePermission, requireUser } from './auth-runtime.server';
+import { pushIssueBackground } from './notion';
 
 const ISSUE_FIELDS = {
   trackerId: 'tracker',
@@ -424,20 +425,29 @@ export const getIssue = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     const result = await getIssueImpl(getDb(), data.id);
     await ensureViewAccess(result.issue.projectId);
-    return result;
+    const me = await getCurrentUser();
+    return { ...result, isWatching: me ? result.watchers.includes(me.id) : false };
   });
 
 export const createIssue = createServerFn({ method: 'POST' })
   .inputValidator((d: unknown) => createIssueSchema.parse(d))
   .handler(async ({ data }) => {
+    const db = getDb();
+    const env = getEnv();
     const { user } = await requirePermission(data.projectId, 'add_issues');
-    return createIssueImpl(getDb(), user, data);
+    const row = await createIssueImpl(db, user, data);
+    // Fire-and-forget Notion sync.  In a request context Cloudflare exposes
+    // `ctx.waitUntil` to keep the worker alive past the response; we settle
+    // the promise silently so a Notion outage never breaks issue creation.
+    pushIssueBackground(env, db, row.id);
+    return row;
   });
 
 export const updateIssue = createServerFn({ method: 'POST' })
   .inputValidator((d: unknown) => updateIssueSchema.parse(d))
   .handler(async ({ data }) => {
     const db = getDb();
+    const env = getEnv();
     const current = await db.query.issues.findFirst({ where: eq(issues.id, data.id) });
     if (!current) throw new Error('Issue not found');
     const hasChanges = Object.keys(data.changes).length > 0;
@@ -445,7 +455,9 @@ export const updateIssue = createServerFn({ method: 'POST' })
     const { user } = noteOnly
       ? await requirePermission(current.projectId, 'add_issue_notes')
       : await requirePermission(current.projectId, 'edit_issues');
-    return updateIssueImpl(db, user, data);
+    const row = await updateIssueImpl(db, user, data);
+    pushIssueBackground(env, db, row.id);
+    return row;
   });
 
 export const watchIssue = createServerFn({ method: 'POST' })

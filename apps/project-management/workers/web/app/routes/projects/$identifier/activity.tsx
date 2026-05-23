@@ -1,13 +1,12 @@
-import { createFileRoute, getRouteApi } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { timeAgo } from '~/lib/format';
 import { listActivities } from '~/server/activities';
-
-const parentRoute = getRouteApi('/projects/$identifier');
+import { getProject } from '~/server/projects';
 
 export const Route = createFileRoute('/projects/$identifier/activity')({
-  loader: async () => {
-    const project = await parentRoute.useLoaderData;
-    return { activities: await listActivities({ projectId: (project as any).id, limit: 100 }) };
+  loader: async ({ params }) => {
+    const project = await getProject({ data: { identifier: params.identifier } });
+    return { activities: await listActivities({ projectId: project.id, limit: 100 }) };
   },
   component: ProjectActivityPage,
 });

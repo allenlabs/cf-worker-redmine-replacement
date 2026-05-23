@@ -8,8 +8,7 @@ import { timeAgo } from '~/lib/format';
 const parentRoute = getRouteApi('/projects/$identifier');
 
 export const Route = createFileRoute('/projects/$identifier/')({
-  loader: async ({ params }) => {
-    const parent = await parentRoute.useLoaderData;
+  loader: async () => {
     const activities = await listActivities({ projectId: undefined, limit: 10 });
     return { activities };
   },

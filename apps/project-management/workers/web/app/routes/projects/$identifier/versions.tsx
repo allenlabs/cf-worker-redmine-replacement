@@ -2,14 +2,15 @@ import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router'
 import { useState } from 'react';
 import { ProgressBar } from '~/components/badges';
 import { formatDate } from '~/lib/format';
+import { getProject } from '~/server/projects';
 import { createVersion, deleteVersion, listVersions, updateVersion } from '~/server/versions';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
 export const Route = createFileRoute('/projects/$identifier/versions')({
-  loader: async () => {
-    const project = await parentRoute.useLoaderData;
-    return { versions: await listVersions({ data: { projectId: (project as any).id } }) };
+  loader: async ({ params }) => {
+    const project = await getProject({ data: { identifier: params.identifier } });
+    return { versions: await listVersions({ data: { projectId: project.id } }) };
   },
   component: VersionsPage,
 });

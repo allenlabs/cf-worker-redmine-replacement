@@ -2,16 +2,16 @@ import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router'
 import { useState } from 'react';
 import { createCategory, deleteCategory, listCategories } from '~/server/categories';
 import { listMembers } from '~/server/members';
+import { getProject } from '~/server/projects';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
 export const Route = createFileRoute('/projects/$identifier/categories')({
-  loader: async () => {
-    const project = await parentRoute.useLoaderData;
-    const projectId = (project as any).id;
+  loader: async ({ params }) => {
+    const project = await getProject({ data: { identifier: params.identifier } });
     return {
-      categories: await listCategories({ data: { projectId } }),
-      members: await listMembers({ data: { projectId } }),
+      categories: await listCategories({ data: { projectId: project.id } }),
+      members: await listMembers({ data: { projectId: project.id } }),
     };
   },
   component: CategoriesPage,

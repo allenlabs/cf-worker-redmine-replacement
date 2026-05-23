@@ -2,17 +2,17 @@ import { Link, createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { ProgressBar } from '~/components/badges';
 import { formatDate } from '~/lib/format';
 import { listIssues } from '~/server/issues';
+import { getProject } from '~/server/projects';
 import { listVersions } from '~/server/versions';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
 export const Route = createFileRoute('/projects/$identifier/roadmap')({
-  loader: async () => {
-    const project = await parentRoute.useLoaderData;
-    const projectId = (project as any).id;
+  loader: async ({ params }) => {
+    const project = await getProject({ data: { identifier: params.identifier } });
     const [versions, issues] = await Promise.all([
-      listVersions({ data: { projectId } }),
-      listIssues({ data: { projectId, statusFilter: 'all', sort: 'id' } }),
+      listVersions({ data: { projectId: project.id } }),
+      listIssues({ data: { projectId: project.id, statusFilter: 'all', sort: 'id' } }),
     ]);
     return { versions, issues };
   },

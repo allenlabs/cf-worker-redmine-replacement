@@ -64,8 +64,13 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
  * `sql`SELECT ...`` are not used by Drizzle (it always goes through
  * `unsafe`), but we still proxy the function itself so direct callers
  * would inherit the same behaviour.
+ *
+ * Exported so tests can drive the retry loop directly without instantiating
+ * a real Postgres connection.
  */
-function wrapWithColdStartRetry(client: ReturnType<typeof postgres>): ReturnType<typeof postgres> {
+export function wrapWithColdStartRetry(
+  client: ReturnType<typeof postgres>,
+): ReturnType<typeof postgres> {
   const handler: ProxyHandler<ReturnType<typeof postgres>> = {
     get(target, prop, receiver) {
       const value = Reflect.get(target, prop, receiver);
