@@ -23,4 +23,9 @@ export interface Env {
   // secrets — only PUBLIC_BASE_URL is still needed for /auth/login to
   // build a callback URL the auth-web worker can redirect back to.
   PUBLIC_BASE_URL: string;
+
+  // OpenTelemetry → Grafana LGTM via Cloudflare Access service token.
+  // Set via `wrangler secret put OTEL_ACCESS_ID` / `OTEL_ACCESS_SECRET`.
+  OTEL_ACCESS_ID: string;
+  OTEL_ACCESS_SECRET: string;
 }

@@ -9,17 +9,37 @@
 // stash env on globalThis at the entrypoint and read it via getEnv() helpers
 // in auth-runtime.server.ts.  Single-threaded JS per isolate makes this
 // race-safe.
+//
+// The whole worker is wrapped in `@microlabs/otel-cf-workers` so every
+// incoming fetch becomes a root span exported via OTLP/HTTP to Grafana LGTM.
+// `instrument()` only wraps the outer handler — the env-on-globalThis stash
+// inside the fetch body still runs because the SDK calls our `fetch` as-is
+// from within its trace context.
 import {
   createStartHandler,
   defaultStreamHandler,
 } from '@tanstack/react-start/server';
+import { instrument, type ResolveConfigFn } from '@microlabs/otel-cf-workers';
 import type { Env } from '~/lib/env';
 
 const handler = createStartHandler(defaultStreamHandler);
 
-export default {
+const worker = {
   async fetch(request, env, ctx): Promise<Response> {
     (globalThis as { __env__?: Env }).__env__ = env;
     return await handler(request, { context: { cloudflare: { env, ctx } } as unknown as Record<string, unknown> });
   },
 } satisfies ExportedHandler<Env>;
+
+const otelConfig: ResolveConfigFn<Env> = (env) => ({
+  service: { name: 'pm-web', version: '0.1.0' },
+  exporter: {
+    url: 'https://lgtm-otlp.allenlabs.org/v1/traces',
+    headers: {
+      'cf-access-client-id': env.OTEL_ACCESS_ID,
+      'cf-access-client-secret': env.OTEL_ACCESS_SECRET,
+    },
+  },
+});
+
+export default instrument(worker, otelConfig);

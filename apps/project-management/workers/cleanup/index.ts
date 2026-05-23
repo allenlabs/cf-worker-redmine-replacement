@@ -4,83 +4,31 @@
 //
 // Runs daily — see workers/cleanup/wrangler.toml.  Designed to be safe to
 // re-run; uses CLEANUP_MAX_ROWS to bound a single invocation.
+//
+// Wrapped in `@microlabs/otel-cf-workers` so each scheduled invocation
+// becomes a root span exported via OTLP/HTTP to Grafana LGTM. The SDK's
+// `Trigger` union includes `ScheduledController`, so `instrument()` covers
+// the scheduled handler natively alongside the optional manual-fetch one.
+//
+// The pure cleanup logic lives in `./runCleanup` so unit tests can import
+// it without pulling in the otel SDK (which imports `cloudflare:workers` —
+// not resolvable in the plain-node Vitest project).
 
-interface Env {
-  DB: D1Database;
-  FILES: R2Bucket;
-  ATTACHMENT_TTL_DAYS: string;
-  CLEANUP_MAX_ROWS: string;
+import { instrument, type ResolveConfigFn } from '@microlabs/otel-cf-workers';
+import { runCleanup, type CleanupEnv } from './runCleanup';
+
+export { runCleanup };
+
+interface Env extends CleanupEnv {
+  // OpenTelemetry → Grafana LGTM via Cloudflare Access service token.
+  // Set via `wrangler secret put OTEL_ACCESS_ID` / `OTEL_ACCESS_SECRET`
+  // (use `--config workers/cleanup/wrangler.toml`).
+  OTEL_ACCESS_ID: string;
+  OTEL_ACCESS_SECRET: string;
 }
 
-interface AttachmentRow {
-  id: number;
-  r2_key: string;
-  container_type: 'issue' | 'wiki_page' | 'project' | 'journal';
-  container_id: number;
-  created_at: number;
-}
-
-interface CleanupResult {
-  scanned: number;
-  deleted: number;
-  freedBytes: number;
-  durationMs: number;
-}
-
-export async function runCleanup(env: Env, now = new Date()): Promise<CleanupResult> {
-  const started = Date.now();
-  const ttlDays = Number(env.ATTACHMENT_TTL_DAYS || '365');
-  const maxRows = Number(env.CLEANUP_MAX_ROWS || '500');
-  const cutoff = Math.floor(now.getTime() / 1000) - ttlDays * 86_400;
-
-  // Candidate set: attachments older than cutoff whose container row no
-  // longer exists in the parent table.  We do this as a single SQL with
-  // LEFT JOINs so a deleted container surfaces as a NULL.
-  const candidates = await env.DB.prepare(
-    `SELECT a.id, a.r2_key, a.container_type, a.container_id, a.created_at, a.filesize
-     FROM attachments a
-     LEFT JOIN issues       i  ON a.container_type = 'issue'     AND i.id  = a.container_id
-     LEFT JOIN wiki_pages   wp ON a.container_type = 'wiki_page' AND wp.id = a.container_id
-     LEFT JOIN projects     p  ON a.container_type = 'project'   AND p.id  = a.container_id
-     LEFT JOIN journals     j  ON a.container_type = 'journal'   AND j.id  = a.container_id
-     WHERE a.created_at < ?1
-       AND (
-         (a.container_type = 'issue'     AND i.id  IS NULL) OR
-         (a.container_type = 'wiki_page' AND wp.id IS NULL) OR
-         (a.container_type = 'project'   AND p.id  IS NULL) OR
-         (a.container_type = 'journal'   AND j.id  IS NULL)
-       )
-     ORDER BY a.created_at ASC
-     LIMIT ?2`,
-  )
-    .bind(cutoff, maxRows)
-    .all<AttachmentRow & { filesize: number }>();
-
-  const rows = candidates.results ?? [];
-  let freedBytes = 0;
-
-  for (const row of rows) {
-    // Best-effort R2 delete; if the object is already gone, D1 row deletion
-    // still proceeds.
-    try {
-      await env.FILES.delete(row.r2_key);
-    } catch {
-      // swallow — orphan R2 references will be reaped by R2 lifecycle rules.
-    }
-    await env.DB.prepare('DELETE FROM attachments WHERE id = ?1').bind(row.id).run();
-    freedBytes += row.filesize;
-  }
-
-  return {
-    scanned: rows.length,
-    deleted: rows.length,
-    freedBytes,
-    durationMs: Date.now() - started,
-  };
-}
-
-export default {
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+const handler = {
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
       (async () => {
         const r = await runCleanup(env);
@@ -105,4 +53,17 @@ export default {
       headers: { 'content-type': 'text/plain' },
     });
   },
-};
+} satisfies ExportedHandler<Env>;
+
+const otelConfig: ResolveConfigFn<Env> = (env) => ({
+  service: { name: 'pm-cleanup', version: '0.1.0' },
+  exporter: {
+    url: 'https://lgtm-otlp.allenlabs.org/v1/traces',
+    headers: {
+      'cf-access-client-id': env.OTEL_ACCESS_ID,
+      'cf-access-client-secret': env.OTEL_ACCESS_SECRET,
+    },
+  },
+});
+
+export default instrument(handler, otelConfig);

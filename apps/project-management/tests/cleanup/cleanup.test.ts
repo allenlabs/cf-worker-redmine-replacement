@@ -2,7 +2,7 @@
 // (Full integration coverage lives in tests/workers/ — this is a focused
 // sanity check that the SQL filters orphaned attachments correctly.)
 import { describe, expect, it } from 'vitest';
-import { runCleanup } from '../../workers/cleanup/index';
+import { runCleanup } from '../../workers/cleanup/runCleanup';
 
 function makeFakeEnv(now: Date) {
   const attachments = [
@@ -51,6 +51,8 @@ function makeFakeEnv(now: Date) {
     } as unknown as R2Bucket,
     ATTACHMENT_TTL_DAYS: '365',
     CLEANUP_MAX_ROWS: '100',
+    OTEL_ACCESS_ID: 'test-otel-id',
+    OTEL_ACCESS_SECRET: 'test-otel-secret',
   };
   return { env, r2Deleted, remainingAttachments: () => attachments };
 }

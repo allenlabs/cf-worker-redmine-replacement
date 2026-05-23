@@ -78,7 +78,8 @@ export async function verifySessionToken(
     });
     if (typeof payload.sub !== 'string') return null;
     return payload as SessionPayload;
-  } catch {
+  } catch (err) {
+    console.error('[verifySessionToken] failed:', err instanceof Error ? `${err.name}: ${err.message}` : String(err));
     return null;
   }
 }

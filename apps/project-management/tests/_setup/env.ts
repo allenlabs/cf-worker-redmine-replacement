@@ -82,6 +82,8 @@ export function makeTestEnv(overrides: Partial<Env> = {}): Env {
     AUTH_WEB_URL: 'https://auth.test',
     AUTH_API_URL: 'https://auth-api.test',
     PUBLIC_BASE_URL: 'http://localhost:3000',
+    OTEL_ACCESS_ID: 'test-otel-id',
+    OTEL_ACCESS_SECRET: 'test-otel-secret',
     ...overrides,
   };
 }
