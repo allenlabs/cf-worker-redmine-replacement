@@ -61,6 +61,7 @@ function ProjectOverview() {
             <Link
               to="/projects/$identifier/issues"
               params={{ identifier: project.identifier }}
+              search={{ status: 'open', q: undefined, sort: 'updated' }}
               className="btn"
             >
               View issues

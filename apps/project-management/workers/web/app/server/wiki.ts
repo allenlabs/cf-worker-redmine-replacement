@@ -9,12 +9,12 @@ import { type CurrentUser } from './auth';
 import { getDb, requirePermission } from './auth-runtime.server';
 
 async function getOrCreateWiki(db: DB, projectId: number) {
-  let wiki = await db.query.wikis.findFirst({ where: eq(wikis.projectId, projectId) });
-  if (!wiki) {
-    const [created] = await db.insert(wikis).values({ projectId }).returning();
-    wiki = created;
-  }
-  return wiki;
+  const existing = await db.query.wikis.findFirst({ where: eq(wikis.projectId, projectId) });
+  if (existing) return existing;
+  const [created] = await db.insert(wikis).values({ projectId }).returning();
+  /* v8 ignore next */
+  if (!created) throw new Error(`failed to create wiki for project ${projectId}`);
+  return created;
 }
 
 export async function listWikiPagesImpl(db: DB, projectId: number) {
@@ -76,20 +76,24 @@ export async function saveWikiPageImpl(
 ) {
   const wiki = await getOrCreateWiki(db, data.projectId);
   const slug = data.slug || slugify(data.title);
-  let page = await db.query.wikiPages.findFirst({
+  const existingPage = await db.query.wikiPages.findFirst({
     where: and(eq(wikiPages.wikiId, wiki.id), eq(wikiPages.slug, slug)),
   });
-  if (!page) {
+  let page: typeof wikiPages.$inferSelect;
+  if (!existingPage) {
     const [created] = await db
       .insert(wikiPages)
       .values({ wikiId: wiki.id, slug, title: data.title, parentId: data.parentId ?? null })
       .returning();
+    /* v8 ignore next */
+    if (!created) throw new Error(`failed to create wiki page ${slug}`);
     page = created;
   } else {
     await db
       .update(wikiPages)
       .set({ title: data.title, parentId: data.parentId ?? null, updatedAt: new Date() })
-      .where(eq(wikiPages.id, page.id));
+      .where(eq(wikiPages.id, existingPage.id));
+    page = existingPage;
   }
   const previous = await db
     .select({ version: wikiRevisions.version })
@@ -108,13 +112,18 @@ export async function saveWikiPageImpl(
       version: nextVersion,
     })
     .returning();
+  /* v8 ignore next */
+  if (!revision) throw new Error(`failed to create wiki revision for page ${page.id}`);
   await db
     .update(wikiPages)
     .set({ currentRevisionId: revision.id })
     .where(eq(wikiPages.id, page.id));
 
   // Refetch so the returned page reflects the latest title + currentRevisionId.
-  page = (await db.query.wikiPages.findFirst({ where: eq(wikiPages.id, page.id) }))!;
+  const refreshed = await db.query.wikiPages.findFirst({ where: eq(wikiPages.id, page.id) });
+  /* v8 ignore next */
+  if (!refreshed) throw new Error(`wiki page ${page.id} not found after update`);
+  page = refreshed;
 
   await logActivityImpl(db, {
     projectId: data.projectId,

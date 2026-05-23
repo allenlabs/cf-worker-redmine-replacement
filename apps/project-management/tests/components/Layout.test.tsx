@@ -29,8 +29,8 @@ function renderAt(
     '/activity',
     '/my/page',
     '/admin/users',
-    '/login',
-    '/register',
+    '/auth/login',
+    '/auth/logout',
     '/search',
   ].map((p) =>
     createRoute({
@@ -59,10 +59,9 @@ describe('Layout', () => {
     expect(screen.getByText('Logout')).toBeInTheDocument();
   });
 
-  it('shows Login / Register when signed out', async () => {
+  it('shows Sign in when signed out', async () => {
     renderAt('/', null);
-    expect(await screen.findByText('Login')).toBeInTheDocument();
-    expect(screen.getByText('Register')).toBeInTheDocument();
+    expect(await screen.findByText('Sign in')).toBeInTheDocument();
   });
 
   it('shows the Admin link only for admins', async () => {

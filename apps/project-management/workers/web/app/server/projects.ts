@@ -145,6 +145,8 @@ export async function createProjectImpl(
       isPublic: data.isPublic,
     })
     .returning();
+  /* v8 ignore next */
+  if (!project) throw new Error(`failed to create project ${data.identifier}`);
 
   await db
     .insert(enabledModules)

@@ -22,8 +22,9 @@ import {
 
 export function getEnv(): Env {
   const req = getRequest();
-  // @ts-expect-error nitro adds cf.env on request
-  const env: Env | undefined = req?.cf?.env ?? (globalThis as any).__env__;
+  const env: Env | undefined =
+    (req as { cf?: { env?: Env } } | undefined)?.cf?.env ??
+    (globalThis as { __env__?: Env }).__env__;
   if (!env) {
     throw new Error('Cloudflare env is not available.  Are you running under wrangler/vinxi-dev?');
   }

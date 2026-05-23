@@ -65,6 +65,8 @@ export async function uploadAttachmentImpl(
       description: input.description ?? '',
     })
     .returning();
+  /* v8 ignore next */
+  if (!row) throw new Error('attachment insert returned no row');
   return row;
 }
 

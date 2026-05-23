@@ -34,7 +34,7 @@ const setStatus = createServerFn({ method: 'POST' })
 
 export const Route = createFileRoute('/admin/users')({
   beforeLoad: async () => {
-    const { getCurrentUser } = await import('~/server/auth');
+    const { getCurrentUser } = await import('~/server/auth-runtime.server');
     const me = await getCurrentUser();
     if (!me?.isAdmin) throw redirect({ to: '/' });
   },

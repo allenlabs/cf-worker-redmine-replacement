@@ -160,10 +160,12 @@ describe('getIssueImpl', () => {
       .insert(issueCategories)
       .values({ projectId, name: 'Backend' })
       .returning();
+    if (!cat) throw new Error('issueCategories insert returned no row');
     const [ver] = await db
       .insert(versions)
       .values({ projectId, name: 'v1.0' })
       .returning();
+    if (!ver) throw new Error('versions insert returned no row');
     const parent = await seedIssue({ subject: 'parent' });
     const child = await seedIssue({ subject: 'child' });
     await db

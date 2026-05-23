@@ -112,6 +112,7 @@ export async function findOrCreateUserBySsoImpl(
         .update(users)
         .set({ betterAuthUserId: payload.sub, lastLoginAt: new Date() })
         .where(eq(users.id, byEmail.id));
+      /* v8 ignore next 2 */
       const refreshed =
         (await db.query.users.findFirst({ where: eq(users.id, byEmail.id) })) ?? byEmail;
       return toCurrentUser(refreshed);
@@ -141,6 +142,7 @@ export async function findOrCreateUserBySsoImpl(
       lastLoginAt: new Date(),
     })
     .returning();
+  /* v8 ignore next */
   if (!created) throw new Error('Failed to insert new user.');
   return toCurrentUser(created);
 }
@@ -152,6 +154,7 @@ async function pickAvailableLogin(db: DB, base: string): Promise<string> {
     if (!clash) return candidate;
   }
   // Astronomically unlikely; bail with a timestamp suffix.
+  /* v8 ignore next */
   return `${base}${Date.now()}`;
 }
 

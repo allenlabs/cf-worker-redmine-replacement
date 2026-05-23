@@ -61,6 +61,33 @@ describe('verifySessionToken (RS256 / JWKS)', () => {
     const env = makeTestEnv({ AUTH_API_URL: '' });
     expect(await verifySessionToken(env, 'any')).toBeNull();
   });
+
+  it('returns null when the JWT verifies but `sub` is not a string', async () => {
+    // jose lets us craft a payload with a non-string `sub` — the
+    // signature still verifies but our guard in verifySessionToken should
+    // reject it before the caller can dereference `sub`.  We prime the
+    // JWKS cache with a fresh ephemeral key so the token verifies.
+    const env = makeTestEnv();
+    const { SignJWT, generateKeyPair, exportJWK, createLocalJWKSet } = await import('jose');
+    const { _setJwksForTests } = await import('~/server/session');
+    const { privateKey, publicKey } = await generateKeyPair('RS256', { extractable: true });
+    const publicJwk = await exportJWK(publicKey);
+    publicJwk.kid = 'numeric-sub-kid';
+    publicJwk.alg = 'RS256';
+    publicJwk.use = 'sig';
+    const jwks = createLocalJWKSet({ keys: [publicJwk as any] });
+    _setJwksForTests(env.AUTH_API_URL, jwks as any);
+    const tokenWithNumericSub = await new SignJWT({ sub: 42 as unknown as string })
+      .setProtectedHeader({ alg: 'RS256', kid: 'numeric-sub-kid' })
+      .setIssuer(env.AUTH_API_URL)
+      .setAudience(env.AUTH_API_URL)
+      .setIssuedAt()
+      .setExpirationTime(Math.floor(Date.now() / 1000) + 60)
+      .sign(privateKey);
+    expect(await verifySessionToken(env, tokenWithNumericSub)).toBeNull();
+    // Restore the original test JWKS for any later tests in this file.
+    await primeJwks(env);
+  });
 });
 
 describe('revokeSession', () => {

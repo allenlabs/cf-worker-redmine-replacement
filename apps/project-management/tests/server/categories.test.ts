@@ -32,16 +32,19 @@ describe('category impls', () => {
       name: 'Triage',
       assignedToId: u.id,
     });
+    if (!c) throw new Error('createCategoryImpl returned no row');
     expect(c.assignedToId).toBe(u.id);
   });
 
   it('handles missing assignedToId as null', async () => {
     const c = await createCategoryImpl(db, { projectId, name: 'C' });
+    if (!c) throw new Error('createCategoryImpl returned no row');
     expect(c.assignedToId).toBeNull();
   });
 
   it('deleteCategoryImpl removes the row', async () => {
     const c = await createCategoryImpl(db, { projectId, name: 'x' });
+    if (!c) throw new Error('createCategoryImpl returned no row');
     await deleteCategoryImpl(db, c.id);
     expect(
       await db.query.issueCategories.findFirst({ where: eq(issueCategories.id, c.id) }),

@@ -45,13 +45,15 @@ export async function listTimeEntriesImpl(db: DB, opts: ListTimeEntriesInput) {
     .where(and(...conds))
     .orderBy(desc(timeEntries.spentOn), desc(timeEntries.createdAt));
 
-  // `coalesce(sum(...), 0)` always returns exactly one row, so the result is
-  // safe to read without optional-chaining gymnastics.
-  const [{ total }] = await db
+  // `coalesce(sum(...), 0)` always returns exactly one row.
+  const totals = await db
     .select({ total: sql<number>`coalesce(sum(${timeEntries.hours}), 0)` })
     .from(timeEntries)
     .where(and(...conds));
-  return { entries: rows, total: Number(total) };
+  const totalRow = totals[0];
+  /* v8 ignore next */
+  if (!totalRow) throw new Error('time-entry total query returned no rows');
+  return { entries: rows, total: Number(totalRow.total) };
 }
 
 export const createTimeEntrySchema = z.object({
@@ -81,6 +83,8 @@ export async function createTimeEntryImpl(
       spentOn: data.spentOn,
     })
     .returning();
+  /* v8 ignore next */
+  if (!entry) throw new Error('failed to create time entry');
   await logActivityImpl(db, {
     projectId: data.projectId,
     userId: user.id,

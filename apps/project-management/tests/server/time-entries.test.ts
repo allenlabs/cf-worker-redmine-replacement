@@ -59,6 +59,7 @@ describe('time entry impls', () => {
         statusId: 1, priorityId: 2, authorId: alice.id,
       })
       .returning();
+    if (!issue) throw new Error('issues insert returned no row');
     await createTimeEntryImpl(db, alice, {
       projectId, activityId: 2, hours: 1, issueId: issue.id, comments: '', spentOn: '2026-05-21',
     });

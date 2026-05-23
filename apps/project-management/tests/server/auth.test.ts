@@ -158,4 +158,15 @@ describe('findOrCreateUserBySsoImpl', () => {
       findOrCreateUserBySsoImpl(db, { sub: 'no-email-uuid' }),
     ).rejects.toThrow(/email/);
   });
+
+  it('falls back to "user" as the login base when the email local-part is all junk', async () => {
+    // The email local-part contains only characters stripped by the
+    // [^a-z0-9._-] regex, so `split('@')[0].replace(...)` returns ''
+    // and the `|| 'user'` fallback fires.
+    const out = await findOrCreateUserBySsoImpl(db, {
+      sub: 'junk-local-part',
+      email: '!!!@example.com',
+    });
+    expect(out.login).toBe('user');
+  });
 });

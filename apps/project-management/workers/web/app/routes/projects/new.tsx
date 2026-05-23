@@ -7,7 +7,7 @@ import { createProject } from '~/server/projects';
 export const Route = createFileRoute('/projects/new')({
   beforeLoad: async () => {
     const user = await getCurrentUser();
-    if (!user) throw redirect({ to: '/login' });
+    if (!user) throw redirect({ to: '/auth/login' });
   },
   component: NewProjectPage,
 });

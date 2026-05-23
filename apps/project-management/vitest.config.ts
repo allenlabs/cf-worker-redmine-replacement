@@ -78,6 +78,11 @@ export default defineConfig({
         'workers/web/app/lib/env.ts',
         'workers/web/app/routes/**',
         'workers/web/app/db/**',
+        // SSR-runtime-only helpers — exercised by deploy integration, not
+        // by the in-process unit tests.  Earlier the file was wrapped in
+        // `/* v8 ignore start/stop */` markers but vitest/v8 stopped
+        // honoring them somewhere along the way, so list it explicitly.
+        'workers/web/app/server/auth-runtime.server.ts',
         '**/*.d.ts',
       ],
       thresholds: {

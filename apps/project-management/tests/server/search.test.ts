@@ -37,7 +37,7 @@ beforeEach(async () => {
     },
   ]);
   await saveWikiPageImpl(db, alice, {
-    projectId: pub.id, slug: 'h', title: 'pub page', text: 'space rocket lore',
+    projectId: pub.id, slug: 'h', title: 'pub page', text: 'space rocket lore', comments: '',
   });
 });
 

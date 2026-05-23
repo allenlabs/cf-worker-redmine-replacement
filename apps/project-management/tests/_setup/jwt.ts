@@ -1,4 +1,4 @@
-import { SignJWT, exportJWK, generateKeyPair, createLocalJWKSet } from 'jose';
+import { SignJWT, exportJWK, generateKeyPair, createLocalJWKSet, type createRemoteJWKSet } from 'jose';
 import { _setJwksForTests, _clearJwksCacheForTests } from '~/server/session';
 import type { Env } from '~/lib/env';
 import type { SessionPayload } from '~/server/session';
@@ -22,10 +22,12 @@ import type { SessionPayload } from '~/server/session';
  *   });
  */
 
+type CachedJwk = Parameters<typeof createLocalJWKSet>[0]['keys'][number];
+
 let cached:
   | {
       privateKey: CryptoKey;
-      publicJwk: Record<string, unknown>;
+      publicJwk: CachedJwk;
       issuer: string;
     }
   | null = null;
@@ -34,14 +36,19 @@ export async function primeJwks(env: Env): Promise<void> {
   _clearJwksCacheForTests();
   if (!cached || cached.issuer !== env.AUTH_API_URL) {
     const { privateKey, publicKey } = await generateKeyPair('RS256', { extractable: true });
-    const publicJwk = await exportJWK(publicKey);
+    const publicJwk = (await exportJWK(publicKey)) as CachedJwk;
     publicJwk.kid = 'test-kid';
     publicJwk.alg = 'RS256';
     publicJwk.use = 'sig';
     cached = { privateKey, publicJwk, issuer: env.AUTH_API_URL };
   }
-  const jwks = createLocalJWKSet({ keys: [cached.publicJwk as Parameters<typeof createLocalJWKSet>[0]['keys'][number]] });
-  _setJwksForTests(env.AUTH_API_URL, jwks);
+  const c = cached;
+  const jwks = createLocalJWKSet({ keys: [c.publicJwk] });
+  // createLocalJWKSet returns a plain callable; the session module's cache
+  // is typed for createRemoteJWKSet (which adds reload/coolingDown/etc.) but
+  // those extras are never invoked during verification, so the cast is safe
+  // for the unit-test surface.
+  _setJwksForTests(env.AUTH_API_URL, jwks as unknown as ReturnType<typeof createRemoteJWKSet>);
 }
 
 export async function signTestJwt(

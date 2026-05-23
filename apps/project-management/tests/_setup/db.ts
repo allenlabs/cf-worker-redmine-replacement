@@ -46,6 +46,7 @@ export async function insertUser(
       ...fields,
     })
     .returning();
+  if (!user) throw new Error('insertUser returned no row');
   return user;
 }
 
@@ -63,6 +64,7 @@ export async function insertProject(
       ...fields,
     })
     .returning();
+  if (!p) throw new Error('insertProject returned no row');
   // enable all default trackers
   const trackers = await db.select().from(schema.trackers);
   if (trackers.length > 0) {

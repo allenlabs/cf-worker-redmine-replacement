@@ -61,10 +61,10 @@ describe('wiki impls', () => {
 
   it('saveWikiPageImpl increments revision version on subsequent edits', async () => {
     await saveWikiPageImpl(db, alice, {
-      projectId, slug: 'g', title: 'G', text: 'v1',
+      projectId, slug: 'g', title: 'G', text: 'v1', comments: '',
     });
     const second = await saveWikiPageImpl(db, alice, {
-      projectId, slug: 'g', title: 'G v2', text: 'v2',
+      projectId, slug: 'g', title: 'G v2', text: 'v2', comments: '',
     });
     expect(second.revision.version).toBe(2);
     expect(second.page.title).toBe('G v2');
@@ -72,7 +72,7 @@ describe('wiki impls', () => {
 
   it('saveWikiPageImpl falls back to slugified title when no slug given', async () => {
     const { page } = await saveWikiPageImpl(db, alice, {
-      projectId, slug: '', title: 'Hello World', text: 'x',
+      projectId, slug: '', title: 'Hello World', text: 'x', comments: '',
     });
     expect(page.slug).toBe('hello-world');
   });
@@ -108,7 +108,7 @@ describe('wiki impls', () => {
 
   it('deleteWikiPageImpl removes the page', async () => {
     const { page } = await saveWikiPageImpl(db, alice, {
-      projectId, slug: 'g', title: 'G', text: 'x',
+      projectId, slug: 'g', title: 'G', text: 'x', comments: '',
     });
     await deleteWikiPageImpl(db, page.id);
     expect(await db.query.wikiPages.findFirst({ where: eq(wikiPages.id, page.id) })).toBeUndefined();

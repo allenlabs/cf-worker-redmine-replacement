@@ -29,6 +29,7 @@ describe('version impls', () => {
       description: '',
       sharing: 'none',
     });
+    if (!v) throw new Error('createVersionImpl returned no row');
     expect(v.name).toBe('1.0');
     expect(v.status).toBe('open');
     expect(v.sharing).toBe('none');
@@ -41,6 +42,7 @@ describe('version impls', () => {
       description: '',
       sharing: 'none',
     });
+    if (!v) throw new Error('createVersionImpl returned no row');
     await db.insert(issues).values([
       {
         projectId,
@@ -88,6 +90,7 @@ describe('version impls', () => {
 
   it('updateVersionImpl mutates status / dueDate', async () => {
     const v = await createVersionImpl(db, { projectId, name: 'x', description: '', sharing: 'none' });
+    if (!v) throw new Error('createVersionImpl returned no row');
     await updateVersionImpl(db, {
       id: v.id,
       projectId,
@@ -104,6 +107,7 @@ describe('version impls', () => {
 
   it('deleteVersionImpl removes the row', async () => {
     const v = await createVersionImpl(db, { projectId, name: 'x', description: '', sharing: 'none' });
+    if (!v) throw new Error('createVersionImpl returned no row');
     await deleteVersionImpl(db, v.id);
     expect(await db.query.versions.findFirst({ where: eq(versions.id, v.id) })).toBeUndefined();
   });

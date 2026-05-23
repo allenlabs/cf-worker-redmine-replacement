@@ -6,9 +6,8 @@
 import { webcrypto } from 'node:crypto';
 import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from 'node:util';
 
-// @ts-expect-error overriding jsdom's TextEncoder so jose's Uint8Array checks work
 globalThis.TextEncoder = NodeTextEncoder;
-// @ts-expect-error
+// @ts-expect-error overriding jsdom's TextDecoder so jose's Uint8Array checks work
 globalThis.TextDecoder = NodeTextDecoder;
 
 if (typeof globalThis.crypto?.subtle === 'undefined') {

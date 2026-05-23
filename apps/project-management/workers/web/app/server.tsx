@@ -20,6 +20,6 @@ const handler = createStartHandler(defaultStreamHandler);
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     (globalThis as { __env__?: Env }).__env__ = env;
-    return await handler(request, { context: { cloudflare: { env, ctx } } });
+    return await handler(request, { context: { cloudflare: { env, ctx } } as unknown as Record<string, unknown> });
   },
 } satisfies ExportedHandler<Env>;

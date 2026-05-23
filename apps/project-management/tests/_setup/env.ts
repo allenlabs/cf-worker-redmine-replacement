@@ -73,7 +73,7 @@ export function makeMemoryR2(): R2Bucket {
 
 export function makeTestEnv(overrides: Partial<Env> = {}): Env {
   return {
-    DB: {} as unknown as D1Database, // not used directly in unit tests; getDb is mocked
+    HYPERDRIVE: {} as unknown as Hyperdrive, // not used directly in unit tests; getDb is mocked
     FILES: makeMemoryR2(),
     SESSION_KV: makeMemoryKV(),
     ASSETS: {} as Fetcher,

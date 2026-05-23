@@ -15,7 +15,7 @@
     "skipLibCheck": true,
     "allowJs": false,
     "noEmit": true,
-    "types": ["@cloudflare/workers-types", "vite/client"],
+    "types": ["@cloudflare/workers-types", "vite/client", "node"],
     "paths": {
       "~/*": ["./workers/web/app/*"]
     }

@@ -78,7 +78,7 @@ const loadMyPage = createServerFn({ method: 'GET' }).handler(async () => {
 export const Route = createFileRoute('/my/page')({
   beforeLoad: async () => {
     const me = await getCurrentUser();
-    if (!me) throw redirect({ to: '/login' });
+    if (!me) throw redirect({ to: '/auth/login' });
   },
   loader: () => loadMyPage(),
   component: MyPagePage,

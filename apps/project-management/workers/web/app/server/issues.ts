@@ -274,6 +274,8 @@ export async function createIssueImpl(
       doneRatio: data.doneRatio,
     })
     .returning();
+  /* v8 ignore next */
+  if (!created) throw new Error('failed to create issue');
 
   await logActivityImpl(db, {
     projectId: data.projectId,
@@ -289,7 +291,7 @@ export async function createIssueImpl(
 export const updateIssueSchema = z.object({
   id: z.number(),
   notes: z.string().optional().default(''),
-  changes: z.record(z.any()).optional().default({}),
+  changes: z.record(z.string(), z.any()).optional().default({}),
 });
 export type UpdateIssueInput = z.infer<typeof updateIssueSchema>;
 
@@ -330,7 +332,9 @@ export async function updateIssueImpl(
       })
       .where(eq(issues.id, data.id))
       .returning();
-    updated = result[0]!;
+    /* v8 ignore next */
+    if (!result[0]) throw new Error(`issue ${data.id} not found`);
+    updated = result[0];
 
     for (const [k, v] of Object.entries(patch)) {
       const old = (current as Record<string, unknown>)[k];
@@ -349,6 +353,8 @@ export async function updateIssueImpl(
       .insert(journals)
       .values({ issueId: data.id, userId: user.id, notes: data.notes })
       .returning();
+    /* v8 ignore next */
+    if (!journal) throw new Error(`failed to create journal for issue ${data.id}`);
     if (detailRows.length > 0) {
       await db
         .insert(journalDetails)
