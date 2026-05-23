@@ -4,17 +4,18 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
 
+// All TanStack Start sources (start.ts, router.tsx, client.tsx, server.tsx,
+// routes/) live under this app's worker source tree, not at the repo root.
+const APP_DIR = 'workers/web/app';
+
 export default defineConfig({
   plugins: [
-    cloudflare(),
+    cloudflare({ configPath: './workers/web/wrangler.toml' }),
     tailwindcss(),
-    // TanStack Start auto-discovers `<srcDirectory>/{start,router,client,server}.{ts,tsx}`.
+    // TanStack Start auto-discovers `<srcDirectory>/{start,router,client,server}.{ts,tsx}`
+    // and resolves `routesDirectory` + `generatedRouteTree` relative to srcDirectory.
     tanstackStart({
-      srcDirectory: 'app',
-      router: {
-        routesDirectory: './app/routes',
-        generatedRouteTree: './app/routeTree.gen.ts',
-      },
+      srcDirectory: APP_DIR,
       // .server.ts files and @tanstack/react-start/server imports are valid
       // server-only references that the createServerFn compiler hoists out of
       // the client bundle.  Tell the import-protection plugin to mock them on
@@ -23,6 +24,6 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: { '~': path.resolve('./app') },
+    alias: { '~': path.resolve(`./${APP_DIR}`) },
   },
 });
