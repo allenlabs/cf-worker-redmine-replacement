@@ -11,7 +11,7 @@ let publicProjectId: number;
 let privateProjectId: number;
 
 beforeEach(async () => {
-  db = makeTestDb();
+  db = await makeTestDb();
   const u = await insertUser(db, { login: 'alice' });
   alice = {
     id: u.id,
@@ -87,7 +87,7 @@ describe('searchImpl', () => {
 
   it('returns empty result when no projects are visible', async () => {
     // Anonymous + everything private
-    const fresh = makeTestDb();
+    const fresh = await makeTestDb();
     const u = await insertUser(fresh);
     await insertProject(fresh, { identifier: 'p', isPublic: false });
     await fresh.insert(issues).values({

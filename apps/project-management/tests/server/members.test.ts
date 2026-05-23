@@ -13,8 +13,8 @@ import {
 
 let db: TestDB;
 
-beforeEach(() => {
-  db = makeTestDb();
+beforeEach(async () => {
+  db = await makeTestDb();
 });
 
 describe('member impls', () => {

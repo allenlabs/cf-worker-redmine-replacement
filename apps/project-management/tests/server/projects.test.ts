@@ -20,8 +20,8 @@ import {
 
 let db: TestDB;
 
-beforeEach(() => {
-  db = makeTestDb();
+beforeEach(async () => {
+  db = await makeTestDb();
 });
 
 function makeUser(overrides: Partial<CurrentUser> = {}): CurrentUser {

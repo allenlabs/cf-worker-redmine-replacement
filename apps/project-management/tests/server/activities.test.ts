@@ -4,8 +4,8 @@ import { listActivitiesImpl, logActivityImpl } from '~/server/activities';
 
 let db: TestDB;
 
-beforeEach(() => {
-  db = makeTestDb();
+beforeEach(async () => {
+  db = await makeTestDb();
 });
 
 describe('logActivityImpl + listActivitiesImpl', () => {

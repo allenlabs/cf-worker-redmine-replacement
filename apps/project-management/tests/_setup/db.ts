@@ -1,26 +1,31 @@
-import Database from 'better-sqlite3';
-import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { PGlite } from '@electric-sql/pglite';
+import { drizzle } from 'drizzle-orm/pglite';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { type DB } from '~/db/client';
 import * as schema from '~/db/schema';
 
-export type TestDB = BetterSQLite3Database<typeof schema>;
+// We surface `DB` as the test database type so server impls (typed
+// `PostgresJsDatabase<typeof schema>` via `~/db/client`) accept the PGlite-
+// backed instance without per-call casts. At runtime drizzle's PG dialect is
+// identical across drivers; the cast is purely to satisfy TS's HKT branding.
+export type TestDB = DB;
 
-// Same path on disk for both the migration and the seed; we just load them
-// and execute them inside a fresh in-memory SQLite for every test.
+// Same path on disk for both the migration and the seed; we load them once
+// and execute them inside a fresh in-memory Postgres (PGlite) per test run.
 const ROOT = join(__dirname, '..', '..');
-const MIGRATIONS = [
-  '0001_initial.sql',
-  '0002_better_auth_user_id.sql',
-].map((f) => readFileSync(join(ROOT, 'drizzle', f), 'utf8'));
-const SEED = readFileSync(join(ROOT, 'drizzle', 'seed.sql'), 'utf8');
+const MIGRATION = readFileSync(join(ROOT, 'drizzle-pg', '0001_initial.sql'), 'utf8');
+const SEED = readFileSync(join(ROOT, 'drizzle-pg', '0002_seed.sql'), 'utf8');
 
-export function makeTestDb(opts?: { seed?: boolean }): TestDB {
-  const sqlite = new Database(':memory:');
-  sqlite.pragma('foreign_keys = ON');
-  for (const m of MIGRATIONS) sqlite.exec(m);
-  if (opts?.seed !== false) sqlite.exec(SEED);
-  return drizzle(sqlite, { schema });
+export async function makeTestDb(opts?: { seed?: boolean }): Promise<TestDB> {
+  const pglite = new PGlite();
+  await pglite.exec(MIGRATION);
+  if (opts?.seed !== false) await pglite.exec(SEED);
+  // The migration sets search_path inline, but it scopes to the session that
+  // executed the DDL. Re-pin it on the live connection so helper inserts
+  // resolve unqualified `pm.*` names too.
+  await pglite.exec(`SET search_path = pm, public;`);
+  return drizzle(pglite, { schema }) as unknown as TestDB;
 }
 
 // A few high-level helpers tests reach for so they stay terse.

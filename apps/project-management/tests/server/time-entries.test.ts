@@ -15,7 +15,7 @@ let projectId: number;
 let alice: CurrentUser;
 
 beforeEach(async () => {
-  db = makeTestDb();
+  db = await makeTestDb();
   const p = await insertProject(db);
   projectId = p.id;
   const u = await insertUser(db, { login: 'alice' });

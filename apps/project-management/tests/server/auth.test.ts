@@ -22,7 +22,7 @@ import { cookieHeader } from '~/server/session';
 let db: TestDB;
 
 beforeEach(async () => {
-  db = makeTestDb();
+  db = await makeTestDb();
   await primeJwks(makeTestEnv());
 });
 

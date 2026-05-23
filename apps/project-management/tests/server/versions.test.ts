@@ -14,7 +14,7 @@ let projectId: number;
 let authorId: number;
 
 beforeEach(async () => {
-  db = makeTestDb();
+  db = await makeTestDb();
   const p = await insertProject(db);
   projectId = p.id;
   const u = await insertUser(db);

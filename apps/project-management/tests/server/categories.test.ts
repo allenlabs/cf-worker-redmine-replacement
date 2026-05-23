@@ -12,7 +12,7 @@ let db: TestDB;
 let projectId: number;
 
 beforeEach(async () => {
-  db = makeTestDb();
+  db = await makeTestDb();
   const p = await insertProject(db);
   projectId = p.id;
 });
