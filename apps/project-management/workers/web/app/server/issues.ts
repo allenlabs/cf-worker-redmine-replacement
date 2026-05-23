@@ -19,7 +19,7 @@ import { ForbiddenError } from '~/lib/permissions';
 import { logActivityImpl } from './activities';
 import { type CurrentUser } from './auth';
 import { buildAuthContext, getDb, getCurrentUser, getEnv, requirePermission, requireUser } from './auth-runtime.server';
-import { pushIssueBackground } from './notion';
+import * as notionGateway from './notion-gateway-client';
 
 const ISSUE_FIELDS = {
   trackerId: 'tracker',
@@ -300,6 +300,13 @@ export async function updateIssueImpl(
   db: DB,
   user: CurrentUser,
   data: UpdateIssueInput,
+  // `notionOrigin=true` means this update originated from the Notion
+  // gateway's webhook fan-out, not from a PM-side action.  The flag is
+  // recorded on the activity row's `body` column so future tooling can
+  // suppress immediate push-back (without re-firing `pushIssueBackground`
+  // and ping-ponging the change).  Defaulting to `false` keeps the call
+  // sites in `routes/api.notion-webhook.tsx` the only producer of `true`.
+  opts: { notionOrigin?: boolean } = {},
 ): Promise<typeof issues.$inferSelect> {
   const current = await db.query.issues.findFirst({ where: eq(issues.id, data.id) });
   if (!current) throw new Error('Issue not found');
@@ -370,6 +377,9 @@ export async function updateIssueImpl(
         data.notes.length > 0
           ? `${user.login} commented on #${data.id}: ${current.subject}`
           : `${user.login} updated #${data.id}: ${current.subject}`,
+      // Record the notion-origin flag on the activity row so consumers /
+      // future fanout suppression can opt-in without touching the schema.
+      body: opts.notionOrigin ? 'notionOrigin=true' : '',
     });
   }
 
@@ -436,10 +446,9 @@ export const createIssue = createServerFn({ method: 'POST' })
     const env = getEnv();
     const { user } = await requirePermission(data.projectId, 'add_issues');
     const row = await createIssueImpl(db, user, data);
-    // Fire-and-forget Notion sync.  In a request context Cloudflare exposes
-    // `ctx.waitUntil` to keep the worker alive past the response; we settle
-    // the promise silently so a Notion outage never breaks issue creation.
-    pushIssueBackground(env, db, row.id);
+    // Fire-and-forget Notion sync via the gateway.  The gateway returns
+    // 404 if the project has no connection yet; the helper swallows that.
+    notionGateway.pushIssueBackground(env, undefined, db, row.id);
     return row;
   });
 
@@ -456,7 +465,7 @@ export const updateIssue = createServerFn({ method: 'POST' })
       ? await requirePermission(current.projectId, 'add_issue_notes')
       : await requirePermission(current.projectId, 'edit_issues');
     const row = await updateIssueImpl(db, user, data);
-    pushIssueBackground(env, db, row.id);
+    notionGateway.pushIssueBackground(env, undefined, db, row.id);
     return row;
   });
 

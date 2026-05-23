@@ -73,6 +73,10 @@ describe('databases handlers', () => {
     );
     expect(out.database.title).toBe('DB');
     expect(out.suggested.fields.subject?.propertyName).toBe('Title');
+    // suggested_mapping is the new documented key; it must mirror
+    // `suggested` so PM/MyPanel can rely on a single source.
+    expect(out.suggested_mapping).toBe(out.suggested);
+    expect(out.suggested_mapping.fields.subject?.propertyName).toBe('Title');
   });
 
   it('inspectDatabase 404s on an unknown workspace', async () => {

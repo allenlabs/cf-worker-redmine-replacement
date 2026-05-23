@@ -34,7 +34,7 @@ accept/return JSON.  The signature is base64 HMAC-SHA256 over
 | `/v1/oauth-start-token` | `{ app_resource, return_to }` | `{ start_url }` (redirect target for the user's browser) |
 | `/v1/workspaces/list` | `{}` | `{ workspaces: [...] }` |
 | `/v1/databases/list` | `{ workspace_id }` | `{ databases: [{ id, title }] }` |
-| `/v1/databases/inspect` | `{ workspace_id, database_id }` | `{ database, suggested }` |
+| `/v1/databases/inspect` | `{ workspace_id, database_id }` | `{ database, suggested, suggested_mapping }` — `suggested_mapping` is the canonical key (added so consumer apps don't need to re-implement the field-to-property heuristic); `suggested` is the legacy alias and references the same object |
 | `/v1/connections/get` | `{ app_resource }` | `{ connection }` (or null) |
 | `/v1/connections/list` | `{}` | `{ connections: [...] }` |
 | `/v1/connections/upsert` | `{ app_resource, workspace_id?, database_id, database_title, mapping }` | `{ connection }` |

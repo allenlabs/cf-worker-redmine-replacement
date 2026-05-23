@@ -82,3 +82,66 @@ export const PM_FIELDS: ReadonlyArray<{
 ];
 
 export type FieldCatalogue = typeof PM_FIELDS;
+
+// ---------- Wire-level response shapes ----------
+//
+// Consumer apps import these directly to type their gateway-client helpers
+// so PM and friends don't have to re-derive them.
+
+/**
+ * Inspect a Notion Database and get back the property schema plus the
+ * gateway's recommended PM-field mapping.  `suggested` is the legacy key
+ * (kept for back-compat); new callers should read `suggested_mapping`.
+ */
+export interface DatabaseInspectResponse {
+  database: { title: string; properties: Record<string, NotionProperty> };
+  suggested: NotionMapping;
+  suggested_mapping: NotionMapping;
+}
+
+/**
+ * The connection row as the gateway exposes it on the wire.  Matches
+ * `ConnectionView` in `workers/api/src/handlers/connections.ts`.
+ */
+export interface GatewayConnection {
+  id: number;
+  workspace_id: number;
+  workspace_name: string;
+  database_id: string;
+  database_title: string;
+  mapping: NotionMapping;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PageUpsertResponse {
+  page_id: string;
+  created: boolean;
+}
+
+export interface PageDeleteResponse {
+  ok: true;
+  archived: boolean;
+}
+
+export interface OAuthStartTokenResponse {
+  start_url: string;
+}
+
+export interface ListDatabasesResponse {
+  databases: Array<{ id: string; title: string }>;
+}
+
+export interface ListWorkspacesResponse {
+  workspaces: Array<{
+    id: number;
+    notion_id: string;
+    name: string;
+    icon: string | null;
+    owner_email: string | null;
+  }>;
+}
+
+// Re-exported under a friendlier alias for consumer-side code that just
+// wants the "is a Notion property" shape without the full module path.
+export type NotionPropertyShape = NotionProperty;

@@ -33,9 +33,13 @@ export interface Env {
   OTEL_ACCESS_SECRET: string;
   OTEL_BEARER_TOKEN: string;
 
-  // Notion integration — populated via `wrangler secret put NOTION_TOKEN`.
-  // Internal-integration token; the integration must be invited to each
-  // Database the user wants to sync.  Optional: when missing the
-  // Integrations settings page renders a setup nudge instead of failing.
-  NOTION_TOKEN?: string;
+  // Notion gateway — PM no longer talks to Notion directly.  Every
+  // Notion API call is proxied through the central gateway at
+  // NOTION_GATEWAY_URL, with HMAC-SHA256 signatures derived from
+  // NOTION_GATEWAY_SECRET (matching the row in
+  // `notion_gateway.app_clients` keyed by NOTION_GATEWAY_CLIENT_ID).
+  // Push all three via `wrangler secret put` on this worker.
+  NOTION_GATEWAY_URL: string;
+  NOTION_GATEWAY_CLIENT_ID: string;
+  NOTION_GATEWAY_SECRET: string;
 }

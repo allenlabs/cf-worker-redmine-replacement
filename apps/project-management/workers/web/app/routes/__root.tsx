@@ -19,12 +19,19 @@ interface RouterContext {
 
 /**
  * Paths that an unauthenticated visitor must still be able to reach.
- *   /auth/login    starts the SSO redirect
- *   /auth/callback receives the code back
- *   /auth/logout   tears down a session
- *   /favicon.svg   browsers always fetch this first
+ *   /auth/login        starts the SSO redirect
+ *   /auth/callback     receives the code back
+ *   /auth/logout       tears down a session
+ *   /api/notion-webhook server-side webhook from the notion-gateway —
+ *                      auth is HMAC, not session
+ *   /favicon.svg       browsers always fetch this first
  */
-const PUBLIC_PATHS = new Set(['/auth/login', '/auth/callback', '/auth/logout']);
+const PUBLIC_PATHS = new Set([
+  '/auth/login',
+  '/auth/callback',
+  '/auth/logout',
+  '/api/notion-webhook',
+]);
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async () => {

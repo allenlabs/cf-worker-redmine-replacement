@@ -85,6 +85,11 @@ export function makeTestEnv(overrides: Partial<Env> = {}): Env {
     OTEL_ACCESS_ID: 'test-otel-id',
     OTEL_ACCESS_SECRET: 'test-otel-secret',
     OTEL_BEARER_TOKEN: 'test-otel-bearer',
+    // Gateway settings: the URL is a no-op base for tests; the secret is
+    // a fixed-length string so HMAC derivation succeeds.
+    NOTION_GATEWAY_URL: 'https://notion-api.test',
+    NOTION_GATEWAY_CLIENT_ID: 'pm',
+    NOTION_GATEWAY_SECRET: 'test-gateway-secret-1234567890ab',
     ...overrides,
   };
 }

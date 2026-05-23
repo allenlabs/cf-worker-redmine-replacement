@@ -11,7 +11,11 @@ import type { DB } from '@shared/db/client';
 import { workspaces } from '@shared/db/schema';
 import { inspectDatabase, listDatabases, makeNotionClient } from '@shared/notion';
 import { suggestMapping } from '@shared/mapping';
-import { PM_FIELDS, type NotionProperty } from '@shared/types';
+import {
+  PM_FIELDS,
+  type DatabaseInspectResponse,
+  type NotionProperty,
+} from '@shared/types';
 import type { AppBindings } from '../context';
 import type { Env } from '../env';
 import { HandlerError } from './connections';
@@ -67,15 +71,18 @@ export async function inspectDatabaseImpl(
   env: Pick<Env, 'WORKSPACE_TOKEN_KEY'>,
   input: InspectDatabaseInput,
   deps: DatabaseDeps = {},
-): Promise<{
-  database: { title: string; properties: Record<string, NotionProperty> };
-  suggested: ReturnType<typeof suggestMapping>;
-}> {
+): Promise<DatabaseInspectResponse> {
   const client = await notionFor(db, env, input.workspace_id, deps);
   const info = await inspectDatabase(client, input.database_id);
+  const suggested = suggestMapping(PM_FIELDS, info.properties);
+  // Returned twice (`suggested` for back-compat with older callers, and
+  // `suggested_mapping` for the documented wire shape consumers should
+  // read).  Both reference the same object so the heuristic stays
+  // single-source.
   return {
     database: info,
-    suggested: suggestMapping(PM_FIELDS, info.properties),
+    suggested,
+    suggested_mapping: suggested,
   };
 }
 
