@@ -63,6 +63,18 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
       { rel: 'stylesheet', href: appCss },
     ],
+    // esbuild's name-preservation helper.  TanStack Start's SSR
+    // serializer emits inline scripts riddled with `/* @__PURE__ */
+    // __name(...)` from seroval; without the polyfill the very first
+    // hydration script throws ReferenceError and the whole page never
+    // boots.  Injected as the FIRST head script so it's defined before
+    // the seroval barrier runs.
+    scripts: [
+      {
+        children:
+          "var __name=(t,n)=>Object.defineProperty(t,'name',{value:n,configurable:true});",
+      },
+    ],
   }),
   component: RootComponent,
 });

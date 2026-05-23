@@ -1,11 +1,15 @@
 name = "pm-web"
-main = "app/server.tsx"
+# `npm run build` (TanStack Start vite plugin) emits the complete worker
+# at dist/server/server.js with all server-fn handlers registered.
+# We bypass @cloudflare/vite-plugin entirely — its parallel pm_web/
+# bundle ships a stub `getServerFnById` (returns undefined for every id)
+# so every POST /_serverFn/<hash> 500'd.  TanStack Start's own server
+# bundle has the real resolver.
+main = "../../dist/server/server.js"
 compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
-# `npm run build` (vite + @cloudflare/vite-plugin) emits the worker bundle.
-# The plugin reads this `main` field as the SSR source.
 assets = { directory = "../../dist/client", binding = "ASSETS" }
 
 # Custom domain — DNS + SSL handled by Cloudflare since allenlabs.org is on
