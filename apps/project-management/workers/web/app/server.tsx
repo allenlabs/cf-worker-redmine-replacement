@@ -27,7 +27,16 @@ const handler = createStartHandler(defaultStreamHandler);
 const worker = {
   async fetch(request, env, ctx): Promise<Response> {
     (globalThis as { __env__?: Env }).__env__ = env;
-    return await handler(request, { context: { cloudflare: { env, ctx } } as unknown as Record<string, unknown> });
+    const res = await handler(request, { context: { cloudflare: { env, ctx } } as unknown as Record<string, unknown> });
+    // Prevent browsers from caching stale SSR HTML that references bundle hashes
+    // that no longer exist after a new deploy.
+    const ct = res.headers.get('content-type') ?? '';
+    if (ct.includes('text/html')) {
+      const headers = new Headers(res.headers);
+      headers.set('Cache-Control', 'no-store');
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+    }
+    return res;
   },
 } satisfies ExportedHandler<Env>;
 
