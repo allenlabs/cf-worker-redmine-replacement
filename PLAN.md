@@ -191,12 +191,17 @@ cleanly into Phase A–D:
     talked to a human?) once a day, *no streak counter*.  Pattern
     visualisation as a 90-day heatmap.  Missed days fade but don't
     reset.  Phrasing is "gentle check" not "habit log".
-16. **`intent` — externalised current intent**.  A single text field
-    that lives in the browser PS1 / mobile widget / macOS menu bar.
-    "What I'm doing right now: ___".  Updates touch a single row in
-    `intent.current(user_id, text, updated_at)` and a tiny CF Worker
-    serves the latest value to all surfaces.  The point is making the
-    intent VISIBLE to the user from outside their own head.
+16. **`intent` — externalised current intent**. **[DONE 2026-05-24]**
+    - Live at https://intent.allenlabs.org (web) +
+      https://intent-api.allenlabs.org (HMAC API).
+    - Storage: `intent.current(user_id PK, text, updated_at)` +
+      `intent.history(id, user_id, text, set_at)` (every save appends) +
+      `intent.api_clients`.
+    - Single 280-char textarea + Save button at `/`.  Auto-saves on blur.
+      Shows last-updated relative timestamp.  Intent feeds CLI PS1,
+      mobile widgets, menubar.
+    - API: POST `/v1/set`, GET `/v1/current`, GET `/v1/history?limit=50`.
+      All HMAC-signed via `intent.api_clients`.
 17. **`dopamine` — celebration ledger**.  Captures every PR-merged,
     issue-closed, focus-session-completed, inbox-zeroed event from
     the other apps (via gateway-style HMAC webhooks) and renders a

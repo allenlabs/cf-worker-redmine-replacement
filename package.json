@@ -26,6 +26,7 @@
     "test:stash": "npm run -w @cf-worker-apps/stash test",
     "test:nudge": "npm run -w @cf-worker-apps/nudge test",
     "test:journal": "npm run -w @cf-worker-apps/journal test",
+    "test:intent": "npm run -w @cf-worker-apps/intent test",
     "test:cli": "npm run -w @allenlabs/cli test",
     "test:e2e": "npm run -w @cf-worker-apps/e2e test",
     "e2e:cleanup": "npm run -w @cf-worker-apps/e2e cleanup",
@@ -53,7 +54,9 @@
     "dev:nudge:api": "npm run -w @cf-worker-apps/nudge dev:api",
     "dev:nudge:cron": "npm run -w @cf-worker-apps/nudge dev:cron",
     "dev:journal": "npm run -w @cf-worker-apps/journal dev",
-    "dev:journal:api": "npm run -w @cf-worker-apps/journal dev:api"
+    "dev:journal:api": "npm run -w @cf-worker-apps/journal dev:api",
+    "dev:intent": "npm run -w @cf-worker-apps/intent dev",
+    "dev:intent:api": "npm run -w @cf-worker-apps/intent dev:api"
   },
   "engines": {
     "node": ">=20"
