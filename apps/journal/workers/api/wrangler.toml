@@ -1,0 +1,22 @@
+name = "journal-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[[routes]]
+pattern = "journal-api.allenlabs.org"
+custom_domain = true
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "0b76cf08a44443d39d12f0d51ed059f5"
+
+[vars]
+APP_NAME = "Journal API"
+PUBLIC_BASE_URL = "https://journal-api.allenlabs.org"
+
+# Secrets:
+#   OTEL_BEARER_TOKEN
+#   OTEL_ACCESS_ID
+#   OTEL_ACCESS_SECRET
