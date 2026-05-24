@@ -45,8 +45,28 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const req = getRequest();
     const cookie = req?.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
-    const url = req ? new URL(req.url) : null;
-    const isPublic = url ? PUBLIC_PATHS.has(url.pathname) : false;
+    // `req.url` is normally a fully-qualified URL on the worker, but during
+    // a server-fn-triggered router invalidation it can be a path-only
+    // string or (in some TanStack Start versions) a non-stringable object,
+    // which `new URL(...)` rejects with "Invalid URL" or "Cannot convert
+    // object to primitive value".  Fall back to extracting the pathname
+    // defensively so beforeLoad never throws past the React error boundary.
+    let pathname: string | null = null;
+    if (req?.url != null) {
+      try {
+        pathname = new URL(req.url as string | URL).pathname;
+      } catch {
+        try {
+          const u = String(req.url);
+          const q = u.indexOf('?');
+          const trimmed = q >= 0 ? u.slice(0, q) : u;
+          pathname = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+        } catch {
+          pathname = '/';
+        }
+      }
+    }
+    const isPublic = pathname ? PUBLIC_PATHS.has(pathname) : false;
     if (token) {
       const env = getEnv();
       const payload = await verifySessionToken(env, token);
