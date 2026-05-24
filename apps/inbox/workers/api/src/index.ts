@@ -7,6 +7,7 @@ import { instrument, otelConfig } from './middleware/telemetry';
 import type { AppBindings } from './context';
 import type { Env } from './lib/env';
 import { captureRouter } from './handlers/capture';
+import { itemsRouter } from './handlers/items';
 
 const app = new Hono<AppBindings>();
 
@@ -15,6 +16,7 @@ app.get('/health', (c) => c.json({ ok: true, service: 'inbox-api' }));
 // Everything under /v1/* is HMAC-gated.
 app.use('/v1/*', hmacMiddleware());
 app.route('/v1/capture', captureRouter);
+app.route('/v1/items', itemsRouter);
 
 const worker = {
   fetch: app.fetch,

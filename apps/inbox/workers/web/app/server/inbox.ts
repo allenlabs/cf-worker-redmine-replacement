@@ -247,6 +247,128 @@ export async function applyTriageImpl(
   return updated ?? null;
 }
 
+// ---------- List items (flat, filtered by status) ----------
+//
+// The triage UI loads a single payload via `loadTriageImpl` (grouped by
+// bucket).  The CLI (and any future flat-list consumer) wants a flat
+// `items[]` filtered by a single status.  Both impls share the same
+// underlying table; this one is just a thinner, scoped read.
+
+export interface ListItemsInput {
+  /** 'unread' (default), any other Status, or 'all' for everything except
+   * 'dropped'. */
+  status?: Status | 'all';
+  /** Soft cap so a runaway client can't OOM the worker. */
+  limit?: number;
+}
+
+export interface ListItemsResult {
+  items: TriageItem[];
+}
+
+export async function listItemsImpl(
+  db: DB,
+  userId: number,
+  input: ListItemsInput = {},
+): Promise<ListItemsResult> {
+  const status = input.status ?? 'unread';
+  const limit = Math.min(Math.max(input.limit ?? 500, 1), 1000);
+  // Wrap each row in json_build_object so postgres.js (text protocol, no
+  // prepared statements, no type fetching) hands us already-decoded JSON.
+  // Otherwise text[] columns come back as the postgres literal `{a,b,c}`
+  // which the CLI can't parse.  Mirrors loadTriageImpl's approach.
+  const result = (await db.execute(
+    status === 'all'
+      ? sql`
+          SELECT COALESCE(json_agg(t), '[]'::json) AS data FROM (
+            SELECT
+              id,
+              text,
+              source,
+              tags,
+              status,
+              snoozed_until AS "snoozedUntil",
+              refiled_to    AS "refiledTo",
+              captured_at   AS "capturedAt"
+            FROM inbox.items
+            WHERE user_id = ${userId}
+              AND status <> 'dropped'
+            ORDER BY captured_at DESC
+            LIMIT ${limit}
+          ) t
+        `
+      : sql`
+          SELECT COALESCE(json_agg(t), '[]'::json) AS data FROM (
+            SELECT
+              id,
+              text,
+              source,
+              tags,
+              status,
+              snoozed_until AS "snoozedUntil",
+              refiled_to    AS "refiledTo",
+              captured_at   AS "capturedAt"
+            FROM inbox.items
+            WHERE user_id = ${userId}
+              AND status = ${status}
+            ORDER BY captured_at DESC
+            LIMIT ${limit}
+          ) t
+        `,
+  )) as unknown;
+  const [first] = rowsOf(result);
+  /* v8 ignore next — `COALESCE(json_agg(t), '[]'::json)` guarantees a
+     non-null `data` field on the first (and only) row; the `?? []`
+     fallback is defensive only. */
+  const data = (first as { data?: TriageItem[] } | undefined)?.data ?? [];
+  return { items: data };
+}
+
+// ---------- Direct status set (used by /v1/items/:id PATCH) ----------
+//
+// `applyTriageImpl` is action-driven (pin / done / drop / snooze1d / ...).
+// The HTTP API also supports a status-driven shape (status=done|dropped|
+// pinned|snoozed[+snoozedUntil]) which matches the on-disk enum directly.
+// Both end up touching the same rows; this impl is the thinnest write
+// possible.
+
+export interface SetItemStatusInput {
+  status: Status;
+  /** Required iff status === 'snoozed'. */
+  snoozedUntil?: Date | null;
+}
+
+export async function setItemStatusImpl(
+  db: DB,
+  userId: number,
+  id: number,
+  input: SetItemStatusInput,
+  now: Date = new Date(),
+): Promise<{ id: number; status: Status; snoozedUntil: Date | null } | null> {
+  // For 'snoozed' we want snoozedUntil to be a future ISO timestamp.  If
+  // the caller didn't supply one, fall back to 1 day from now (same as
+  // applyTriageImpl's `snooze1d`) so we never persist a snooze row with a
+  // NULL wake-up.
+  const snoozedUntil =
+    input.status === 'snoozed'
+      ? input.snoozedUntil ?? new Date(now.getTime() + 24 * 60 * 60 * 1000)
+      : null;
+  const [updated] = await db
+    .update(items)
+    .set({
+      status: input.status,
+      snoozedUntil,
+      updatedAt: now,
+    })
+    .where(and(eq(items.id, id), eq(items.userId, userId)))
+    .returning({
+      id: items.id,
+      status: items.status,
+      snoozedUntil: items.snoozedUntil,
+    });
+  return updated ?? null;
+}
+
 // ---------- HMAC client lookup (re-exported by the API worker) ----------
 
 export interface ApiClientRow {
