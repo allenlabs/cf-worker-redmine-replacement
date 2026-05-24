@@ -66,7 +66,9 @@
     "dev:transition": "npm run -w @cf-worker-apps/transition dev",
     "dev:transition:api": "npm run -w @cf-worker-apps/transition dev:api",
     "dev:solved": "npm run -w @cf-worker-apps/solved dev",
-    "dev:solved:api": "npm run -w @cf-worker-apps/solved dev:api"
+    "dev:solved:api": "npm run -w @cf-worker-apps/solved dev:api",
+    "dev:gentle": "npm run -w @cf-worker-apps/gentle dev",
+    "dev:gentle:api": "npm run -w @cf-worker-apps/gentle dev:api"
   },
   "engines": {
     "node": ">=20"

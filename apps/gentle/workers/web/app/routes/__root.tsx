@@ -25,22 +25,26 @@ const PUBLIC_PATHS = new Set([
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async () => {
-    // `getRequest()` reads from h3's AsyncLocalStorage and THROWS on the
-    // client. Catch it and bail out — the initial SSR already gated this
-    // isolate; letting the throw escape silently breaks every in-app Link
-    // click (URL changes via pushState but the new route never renders).
-    let req: Request | undefined;
-    try { req = getRequest(); } catch { return; }
+    const req = getRequest();
     if (!req) return;
-    const cookie = req?.headers.get('cookie') ?? null;
+    const cookie = req.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
-    let url: URL | null = null;
-    try {
-      url = req ? new URL(req.url) : null;
-    } catch {
-      url = null;
+    let pathname: string | null = null;
+    if (req.url != null) {
+      try {
+        pathname = new URL(req.url as string | URL).pathname;
+      } catch {
+        try {
+          const u = String(req.url);
+          const q = u.indexOf('?');
+          const trimmed = q >= 0 ? u.slice(0, q) : u;
+          pathname = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+        } catch {
+          pathname = '/';
+        }
+      }
     }
-    const isPublic = url ? PUBLIC_PATHS.has(url.pathname) : false;
+    const isPublic = pathname ? PUBLIC_PATHS.has(pathname) : false;
     if (token) {
       const env = getEnv();
       const payload = await verifySessionToken(env, token);
@@ -50,10 +54,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     throw redirect({ to: '/auth/login' });
   },
   loader: async () => {
-    // Server-only — see beforeLoad rationale.  Return a shape-compatible
-    // default so the layout keeps rendering on the client.
-    let req: Request | undefined;
-    try { req = getRequest(); } catch { return { user: null, appName: 'Journal' }; }
+    const req = getRequest();
     const cookie = req?.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
     const env = getEnv();
@@ -65,21 +66,17 @@ export const Route = createRootRouteWithContext<RouterContext>()({
           (typeof payload.email === 'string' && payload.email.split('@')[0]) ||
           (typeof payload.name === 'string' && payload.name) ||
           'user';
-        user = {
-          id: -1,
-          login: displayName,
-          isAdmin: false,
-        };
+        user = { id: -1, login: displayName, isAdmin: false };
       }
     }
-    return { user, appName: env.APP_NAME ?? 'Journal' };
+    return { user, appName: env.APP_NAME ?? 'Gentle' };
   },
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'Journal' },
-      { name: 'theme-color', content: '#581c87' },
+      { title: 'Gentle' },
+      { name: 'theme-color', content: '#115e59' },
     ],
     links: [{ rel: 'stylesheet', href: appCss }],
     scripts: [

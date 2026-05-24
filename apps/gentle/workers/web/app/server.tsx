@@ -11,23 +11,14 @@ const handler = createStartHandler(defaultStreamHandler);
 const worker = {
   async fetch(request, env, ctx): Promise<Response> {
     (globalThis as { __env__?: Env }).__env__ = env;
-    const res = await handler(request, {
+    return await handler(request, {
       context: { cloudflare: { env, ctx } } as unknown as Record<string, unknown>,
     });
-    // Prevent browsers from caching stale SSR HTML that references bundle
-    // hashes that no longer exist after a new deploy.
-    const ct = res.headers.get('content-type') ?? '';
-    if (ct.includes('text/html')) {
-      const headers = new Headers(res.headers);
-      headers.set('Cache-Control', 'no-store');
-      return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
-    }
-    return res;
   },
 } satisfies ExportedHandler<Env>;
 
 const otelConfig: ResolveConfigFn<Env> = (env) => ({
-  service: { name: 'journal-web', version: '0.1.0' },
+  service: { name: 'gentle-web', version: '0.1.0' },
   exporter: {
     url: 'https://lgtm-otlp.allenlabs.org/v1/traces',
     headers: {
