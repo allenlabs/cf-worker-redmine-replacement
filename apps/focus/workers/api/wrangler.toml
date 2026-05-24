@@ -1,0 +1,27 @@
+name = "focus-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[[routes]]
+pattern = "focus-api.allen.company"
+custom_domain = true
+
+# Hyperdrive → Hetzner Postgres (`allenlabs` DB, `focus` schema).
+# Reuses the same Hyperdrive binding as focus-web + inbox + pm-web.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "0b76cf08a44443d39d12f0d51ed059f5"
+
+[vars]
+APP_NAME = "Focus API"
+PUBLIC_BASE_URL = "https://focus-api.allen.company"
+
+# Secrets — set with `wrangler secret put …`:
+#   OTEL_BEARER_TOKEN
+#   OTEL_ACCESS_ID
+#   OTEL_ACCESS_SECRET
+#
+# The HMAC secrets themselves live in focus.api_clients (one per client_id),
+# not as wrangler secrets — they're per-client and rotated via UPDATE.
