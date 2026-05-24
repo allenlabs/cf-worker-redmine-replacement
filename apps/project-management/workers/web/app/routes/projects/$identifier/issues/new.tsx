@@ -68,6 +68,8 @@ function NewIssuePage() {
         },
       });
       notifySuccess(`Issue #${created.id} created`);
+      // Invalidate so the issues list and parent project (counts) refresh.
+      router.invalidate();
       router.navigate({
         to: '/projects/$identifier/issues/$issueId',
         params: { identifier: project.identifier, issueId: String(created.id) },

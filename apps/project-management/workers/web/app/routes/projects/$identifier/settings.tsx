@@ -41,6 +41,8 @@ function SettingsPage() {
     try {
       await deleteProject({ data: { id: project.id } });
       notifySuccess('Project deleted');
+      // Invalidate so /projects doesn't surface the just-deleted row.
+      router.invalidate();
       router.navigate({ to: '/projects' });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

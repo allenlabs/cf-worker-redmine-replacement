@@ -32,6 +32,9 @@ function NewProjectPage() {
     try {
       const created = await createProject({ data: form });
       notifySuccess('Project created');
+      // Invalidate cached loaders so /projects re-fetches the new list
+      // when the user navigates back.
+      router.invalidate();
       router.navigate({ to: '/projects/$identifier', params: { identifier: created.identifier } });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

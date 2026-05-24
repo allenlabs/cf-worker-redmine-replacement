@@ -62,6 +62,8 @@ function WikiPagePage() {
   async function destroy() {
     if (!data.page || !confirm('Delete this page?')) return;
     await deleteWikiPage({ data: { id: data.page.id, projectId: project.id } });
+    // Refresh /projects/$identifier/wiki so the deleted page disappears.
+    router.invalidate();
     router.navigate({ to: '/projects/$identifier/wiki', params: { identifier: project.identifier } });
   }
 
