@@ -219,7 +219,7 @@ export function FocusPanel({ focusToday, focusHeatmap }: FocusPanelProps) {
         <Sparkline days={focusHeatmap.days} />
       </div>
       <a
-        href="https://focus.allen.company/"
+        href="https://focus.allenlabs.org/"
         className="mt-3 inline-block text-xs text-amber-400 hover:underline"
       >
         Open focus →
@@ -252,7 +252,7 @@ export function InboxPanel({ inboxCount, inboxUnread }: InboxPanelProps) {
         </ul>
       )}
       <a
-        href="https://inbox.allen.company/"
+        href="https://inbox.allenlabs.org/"
         className="mt-3 inline-block text-xs text-amber-400 hover:underline"
       >
         Open inbox →

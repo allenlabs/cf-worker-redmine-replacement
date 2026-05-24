@@ -127,7 +127,7 @@ export function pickOneNextAction(
     return {
       kind: 'focus',
       label: data.activeFocus.taskText,
-      url: 'https://focus.allen.company/',
+      url: 'https://focus.allenlabs.org/',
     };
   }
   // Overdue PM issue first.  We compare at day granularity (a due_date is a
@@ -161,7 +161,7 @@ export function pickOneNextAction(
     return {
       kind: 'inbox',
       label: truncate(top.text, 200),
-      url: 'https://inbox.allen.company/',
+      url: 'https://inbox.allenlabs.org/',
     };
   }
   return null;

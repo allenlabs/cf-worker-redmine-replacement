@@ -80,7 +80,7 @@ describe('HeroCard', () => {
     const now = Date.parse('2026-05-24T10:00:00Z');
     render(
       <HeroCard
-        action={{ kind: 'focus', label: baseActive.taskText, url: 'https://focus.allen.company/' }}
+        action={{ kind: 'focus', label: baseActive.taskText, url: 'https://focus.allenlabs.org/' }}
         activeFocus={baseActive}
       />,
     );

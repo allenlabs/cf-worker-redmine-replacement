@@ -55,7 +55,7 @@ describe('pickOneNextAction', () => {
     });
     expect(action?.kind).toBe('focus');
     expect(action?.label).toBe('fix auth bug');
-    expect(action?.url).toBe('https://focus.allen.company/');
+    expect(action?.url).toBe('https://focus.allenlabs.org/');
   });
 
   it('picks an overdue PM issue next', () => {
@@ -126,7 +126,7 @@ describe('pickOneNextAction', () => {
     });
     expect(action?.kind).toBe('inbox');
     expect(action?.label).toBe('remember to drink water');
-    expect(action?.url).toBe('https://inbox.allen.company/');
+    expect(action?.url).toBe('https://inbox.allenlabs.org/');
   });
 
   it('truncates very long inbox captures in the hero label', () => {
