@@ -1,0 +1,24 @@
+name = "nudge-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[[routes]]
+pattern = "nudge-api.allenlabs.org"
+custom_domain = true
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "0b76cf08a44443d39d12f0d51ed059f5"
+
+[vars]
+APP_NAME = "Nudge API"
+PUBLIC_BASE_URL = "https://nudge-api.allenlabs.org"
+
+# Secrets (set via `wrangler secret put ...`):
+#   OTEL_BEARER_TOKEN
+#   OTEL_ACCESS_ID
+#   OTEL_ACCESS_SECRET
+#
+# Per-client HMAC secrets live in nudge.api_clients.
