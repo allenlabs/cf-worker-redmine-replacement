@@ -91,11 +91,34 @@ export async function signInOnce(
   password: string,
 ): Promise<void> {
   const returnTo = `${app.baseUrl}/auth/callback`;
-  const signInRes = await ctx.post(`${AUTH_BASE_URL}/sign-in`, {
-    form: { email, password, return_to: returnTo },
-    maxRedirects: 0,
-    failOnStatusCode: false,
-  });
+
+  // auth-api's /api/auth/sign-in/email is rate-limited (10 / 60s / IP).
+  // When we trip it the web auth re-shows /sign-in with the error in the
+  // querystring; back off and retry rather than failing the whole suite.
+  const MAX_RATE_LIMIT_RETRIES = 4;
+  let attempt = 0;
+  let signInRes;
+  while (true) {
+    signInRes = await ctx.post(`${AUTH_BASE_URL}/sign-in`, {
+      form: { email, password, return_to: returnTo },
+      maxRedirects: 0,
+      failOnStatusCode: false,
+    });
+    if (signInRes.status() === 303 || signInRes.status() === 302) {
+      const loc = signInRes.headers()['location'] ?? '';
+      if (/error=Too\+many\+requests/i.test(loc) || /error=Too%20many%20requests/i.test(loc)) {
+        if (attempt >= MAX_RATE_LIMIT_RETRIES) break;
+        const wait = 15_000 + attempt * 15_000;
+        console.warn(
+          `[e2e:auth] auth-api rate-limited (${app.name}); waiting ${wait}ms then retrying…`,
+        );
+        await new Promise((r) => setTimeout(r, wait));
+        attempt++;
+        continue;
+      }
+    }
+    break;
+  }
 
   if (signInRes.status() !== 303 && signInRes.status() !== 302) {
     const body = await signInRes.text().catch(() => '');
@@ -167,8 +190,19 @@ export async function buildStorageState(opts: SignInOptions = {}): Promise<strin
   const factory: APIRequest = requestModule;
   const ctx = await factory.newContext();
   try {
+    // auth-api rate-limits /api/auth/sign-in/email to 10 requests / 60s per
+    // IP.  With 5 apps in APPS we'd burn 5 of those on every cold cache
+    // build, leaving no headroom for retries or back-to-back local re-runs.
+    // A modest 1.2s pause between sign-ins keeps the rolling-window count
+    // far under the limit and is well under the 6h cache freshness window.
+    const SIGN_IN_GAP_MS = Number(process.env.E2E_SIGN_IN_GAP_MS ?? 1200);
+    let i = 0;
     for (const app of Object.values(APPS)) {
+      if (i > 0 && SIGN_IN_GAP_MS > 0) {
+        await new Promise((r) => setTimeout(r, SIGN_IN_GAP_MS));
+      }
       await signInOnce(ctx, app, email, password);
+      i++;
     }
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
     await ctx.storageState({ path: outputPath });
