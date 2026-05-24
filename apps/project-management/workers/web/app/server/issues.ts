@@ -58,6 +58,7 @@ export interface IssueRow {
   doneRatio: number;
   startDate: string | null;
   dueDate: string | null;
+  fixedVersionId: number | null;
   updatedAt: Date;
 }
 
@@ -120,6 +121,9 @@ export async function listIssuesImpl(db: DB, data: ListIssuesInput): Promise<Iss
       doneRatio: issues.doneRatio,
       startDate: issues.startDate,
       dueDate: issues.dueDate,
+      // Roadmap groups issues by fixed_version; previously it had no way
+      // to filter rows since listIssues didn't return this column.
+      fixedVersionId: issues.fixedVersionId,
       updatedAt: issues.updatedAt,
     })
     .from(issues)

@@ -57,7 +57,7 @@ export function Layout({ user, appName, children }: Props) {
       <main className="max-w-7xl w-full mx-auto px-4 py-6 flex-1">{children}</main>
       <ToastViewport />
       <footer className="text-center text-xs text-gray-500 py-4">
-        Powered by Cloudflare Workers · TanStack Start · D1 · R2
+        Powered by Cloudflare Workers · TanStack Start · Hyperdrive · R2
       </footer>
     </div>
   );

@@ -56,8 +56,7 @@ function RoadmapPage() {
     <div className="space-y-6">
       <h2 className="text-xl font-semibold">Roadmap</h2>
       {versions.map((v) => {
-        const versionIssues = issues.filter((i) => (i as any).fixedVersionId === v.id || false);
-        // Note: listIssues row shape doesn't expose fixedVersionId. We fall back to using totals from versions.
+        const versionIssues = issues.filter((i) => i.fixedVersionId === v.id);
         return (
           <section key={v.id} className="card p-4">
             <header className="flex items-baseline justify-between mb-2">
@@ -71,6 +70,18 @@ function RoadmapPage() {
             <p className="text-xs text-gray-500 mt-1">
               {v.closedIssues} / {v.totalIssues} closed ({v.percent}%)
             </p>
+            {versionIssues.length > 0 ? (
+              <ul className="mt-3 text-sm divide-y divide-gray-100">
+                {versionIssues.map((i) => (
+                  <li key={i.id} className="py-1 flex items-center gap-2">
+                    <span className={i.statusIsClosed ? 'line-through text-gray-500' : ''}>
+                      #{i.id} {i.subject}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-auto">{i.statusName}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </section>
         );
       })}

@@ -22,8 +22,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --project=node --project=jsdom --coverage",
-    "test:workers": "vitest run --project=workers",
-    "build:patch": "node scripts/patch-worker-manifest.mjs"
+    "test:workers": "vitest run --project=workers"
   },
   "dependencies": {
     "@microlabs/otel-cf-workers": "^1.0.0-rc.52",
