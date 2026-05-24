@@ -26,8 +26,14 @@ const PUBLIC_PATHS = new Set([
   '/auth/callback',
   '/auth/logout',
   '/api/capture',
+  // Push endpoints handle auth via the same cookie path as `/`; they're
+  // listed here so beforeLoad doesn't redirect XHRs to /auth/login (which
+  // would 200-with-HTML and confuse fetch callers).
+  '/api/push/subscribe',
+  '/api/push/preferences',
   '/manifest.webmanifest',
   '/sw.js',
+  '/icon-192.png',
 ]);
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -68,14 +74,25 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     return {
       user,
       appName: env.APP_NAME ?? 'Inbox',
+      // `vapidPublicKey` is the application server key the browser uses
+      // to scope its PushSubscription.  Safe to embed in the client
+      // bundle / HTML — the corresponding privateKey lives only as a
+      // wrangler secret in the worker.
+      vapidPublicKey: env.VAPID_PUBLIC_KEY ?? '',
     };
   },
-  head: () => ({
+  head: ({ loaderData }) => ({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { title: 'Inbox' },
       { name: 'theme-color', content: '#1f2937' },
+      // `vapid-public` is read by the service worker on
+      // `pushsubscriptionchange` to re-subscribe without touching JS
+      // state.  Empty string falls back to "no push" cleanly.
+      ...(loaderData && typeof loaderData === 'object' && 'vapidPublicKey' in loaderData && typeof (loaderData as { vapidPublicKey: unknown }).vapidPublicKey === 'string'
+        ? [{ name: 'vapid-public', content: (loaderData as { vapidPublicKey: string }).vapidPublicKey }]
+        : []),
     ],
     links: [
       { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },

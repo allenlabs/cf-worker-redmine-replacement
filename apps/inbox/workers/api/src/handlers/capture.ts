@@ -1,6 +1,10 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { captureImpl, captureSchema } from '../../../web/app/server/inbox';
+import {
+  makeVapidTransport,
+  sendCaptureNotificationImpl,
+} from '../../../web/app/server/push';
 import type { AppBindings } from '../context';
 
 // POST /v1/capture
@@ -36,5 +40,25 @@ captureRouter.post('/', async (c) => {
     ...result.data,
     source: result.data.source ?? client.clientId,
   });
+
+  // Fan out a Web Push to every device this user has registered.  Don't
+  // block the response on the push round-trip — `ctx.waitUntil` lets the
+  // worker shut down only after the fan-out completes.
+  /* v8 ignore start — push fan-out covered by tests/server/push.test.ts;
+     the waitUntil wiring needs the workerd runtime to exercise. */
+  if (c.env.VAPID_PRIVATE_KEY) {
+    c.executionCtx.waitUntil(
+      sendCaptureNotificationImpl(
+        c.env,
+        db,
+        client.userId,
+        { id: created.id, text: result.data.text },
+        { transport: makeVapidTransport(c.env) },
+      ).catch((err) => {
+        console.error('[push] sendCaptureNotificationImpl failed', err);
+      }),
+    );
+  }
+  /* v8 ignore stop */
   return c.json({ id: created.id, capturedAt: created.capturedAt }, 201);
 });

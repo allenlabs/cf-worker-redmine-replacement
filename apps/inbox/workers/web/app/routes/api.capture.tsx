@@ -2,6 +2,10 @@ import { createFileRoute } from '@tanstack/react-router';
 import { captureImpl, captureSchema } from '~/server/inbox';
 import { findUserBySsoImpl } from '~/server/users';
 import { getDb, getEnv } from '~/server/auth-runtime.server';
+import {
+  makeVapidTransport,
+  sendCaptureNotificationImpl,
+} from '~/server/push';
 import { readSessionToken, verifySessionToken } from '~/server/session.server';
 
 /**
@@ -45,6 +49,22 @@ export const Route = createFileRoute('/api/capture')({
           ...parsed.data,
           source: parsed.data.source ?? 'web',
         });
+        // Best-effort push fan-out — caught/swallowed so a push transport
+        // hiccup never breaks a capture.  The SSR route handler runs
+        // inside the worker's request scope; ExecutionContext isn't
+        // exposed by TanStack Start's route handler signature so we
+        // fire-and-forget here.
+        if (env.VAPID_PRIVATE_KEY) {
+          void sendCaptureNotificationImpl(
+            env,
+            db,
+            me.id,
+            { id: created.id, text: parsed.data.text },
+            { transport: makeVapidTransport(env) },
+          ).catch((err) => {
+            console.error('[push] sendCaptureNotificationImpl failed', err);
+          });
+        }
         return new Response(JSON.stringify({ id: created.id }), {
           status: 201,
           headers: { 'content-type': 'application/json' },

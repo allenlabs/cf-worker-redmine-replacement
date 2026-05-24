@@ -4,9 +4,14 @@ import { getRequest } from '@tanstack/react-start/server';
 import { useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { TRIAGE_ACTIONS, applyTriageImpl, captureImpl, captureSchema, loadTriageImpl, type TriageAction, type TriagePayload } from '~/server/inbox';
+import {
+  makeVapidTransport,
+  sendCaptureNotificationImpl,
+} from '~/server/push';
 import { getDb, getEnv, requireUser } from '~/server/auth-runtime.server';
 import { readSessionToken, verifySessionToken } from '~/server/session.server';
 import { timeAgo, untilNow } from '~/lib/format';
+import { NotificationsPanel } from '~/components/NotificationsPanel';
 
 /* v8 ignore start */
 // Server function: triage list payload.  Verifies the JWT, then dispatches
@@ -28,7 +33,23 @@ const captureFromWeb = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => captureSchema.parse(data))
   .handler(async ({ data }) => {
     const me = await requireUser();
-    return captureImpl(getDb(), me.id, { ...data, source: data.source ?? 'web' });
+    const env = getEnv();
+    const db = getDb(env);
+    const created = await captureImpl(db, me.id, { ...data, source: data.source ?? 'web' });
+    // Fire push fan-out (don't block the UI).  Caught so transport errors
+    // can't bubble up to the captureFromWeb response.
+    if (env.VAPID_PRIVATE_KEY) {
+      void sendCaptureNotificationImpl(
+        env,
+        db,
+        me.id,
+        { id: created.id, text: data.text },
+        { transport: makeVapidTransport(env) },
+      ).catch((err) => {
+        console.error('[push] sendCaptureNotificationImpl failed', err);
+      });
+    }
+    return created;
   });
 
 const ActionInput = z.object({ id: z.number().int().positive(), action: z.enum(TRIAGE_ACTIONS) });
@@ -218,6 +239,7 @@ function TriagePage() {
           </ul>
         </details>
       ) : null}
+      <NotificationsPanel />
       <div className="mt-8 text-xs text-slate-500">
         <strong>Keys</strong>: j/k move · ↵ open · 1 pin · 2 refile→PM · d drop · s snooze 1d · S snooze 1w · u mark unread
       </div>
