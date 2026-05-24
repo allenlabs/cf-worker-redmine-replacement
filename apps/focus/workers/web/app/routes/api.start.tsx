@@ -9,7 +9,7 @@ import { readSessionToken, verifySessionToken } from '~/server/session.server';
  *
  * Cookie-authenticated session-start endpoint used by the web UI and the
  * in-browser extension's "start a session on this tab" action.  HMAC
- * traffic (CLI, third-party automation) goes to focus-api.allen.company
+ * traffic (CLI, third-party automation) goes to focus-api.allenlabs.org
  * instead; the impl is shared.
  */
 export const Route = createFileRoute('/api/start')({

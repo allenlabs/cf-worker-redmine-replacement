@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [[routes]]
-pattern = "focus-api.allen.company"
+pattern = "focus-api.allenlabs.org"
 custom_domain = true
 
 # Hyperdrive → Hetzner Postgres (`allenlabs` DB, `focus` schema).
@@ -16,7 +16,7 @@ id = "0b76cf08a44443d39d12f0d51ed059f5"
 
 [vars]
 APP_NAME = "Focus API"
-PUBLIC_BASE_URL = "https://focus-api.allen.company"
+PUBLIC_BASE_URL = "https://focus-api.allenlabs.org"
 
 # Secrets — set with `wrangler secret put …`:
 #   OTEL_BEARER_TOKEN
