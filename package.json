@@ -22,6 +22,7 @@
     "test:today": "npm run -w @cf-worker-apps/today test",
     "test:context": "npm run -w @cf-worker-apps/context test",
     "test:concierge": "npm run -w @cf-worker-apps/concierge test",
+    "test:read-later": "npm run -w @cf-worker-apps/read-later test",
     "test:cli": "npm run -w @allenlabs/cli test",
     "test:e2e": "npm run -w @cf-worker-apps/e2e test",
     "e2e:cleanup": "npm run -w @cf-worker-apps/e2e cleanup",
@@ -40,7 +41,9 @@
     "dev:context:api": "npm run -w @cf-worker-apps/context dev:api",
     "dev:concierge": "npm run -w @cf-worker-apps/concierge dev",
     "dev:concierge:api": "npm run -w @cf-worker-apps/concierge dev:api",
-    "dev:concierge:cron": "npm run -w @cf-worker-apps/concierge dev:cron"
+    "dev:concierge:cron": "npm run -w @cf-worker-apps/concierge dev:cron",
+    "dev:read-later": "npm run -w @cf-worker-apps/read-later dev",
+    "dev:read-later:api": "npm run -w @cf-worker-apps/read-later dev:api"
   },
   "engines": {
     "node": ">=20"

@@ -61,14 +61,21 @@ day with the existing infra (auth, Hyperdrive, TanStack Start patterns).
      active browser tabs (via extension).  Saves to R2 + index in PG.
    - Restore: `ctx restore <name>` reopens everything.  Diff view shows
      what changed since you left.
-5. **`read-later`** — Read-later w/ TTS.
-   - Storage: `read_later.items(id, url, fetched_html, summary, audio_r2_key,
-     added_at, read_at, archived_at)`.
-   - Worker fetches the URL, runs a short summarization via Workers AI,
-     generates 3-sentence TL;DR, optionally TTS via Workers AI text-to-speech
-     stored in R2.
-   - Force-archive after 30 days (with a one-tap "send to journal" if it
-     mattered).
+5. **`read-later`** — Reading queue. **[DONE 2026-05-24]**
+   - Live at https://read-later.allen.company (web) +
+     https://read-later-api.allen.company (HMAC API).
+   - Storage: `read_later.items(id, user_id, url, title, excerpt,
+     content_html, word_count, estimated_minutes, tags, saved_at, read_at,
+     skipped_count, source)` + `read_later.api_clients`.
+   - Reader-mode extraction at save: Mozilla Readability via linkedom +
+     sanitize-html, falls back to OG-meta scrape on parser misses. Word
+     count → `estimated_minutes` (220 wpm) drives "what can I read in N
+     min" prioritisation.
+   - Queue surface: ONE next thing to read (fits free time, then oldest,
+     skips sink to bottom). Skip / Done / Read-now actions.
+   - API: POST `/v1/save`, GET `/v1/next?freeMinutes=`, POST `/v1/done`,
+     POST `/v1/skip`, POST `/v1/delete`. All HMAC-signed via
+     `read_later.api_clients`.
 6. **`stash`** — Tab graveyard.
    - Browser ext one-clicks "stash this window" → POSTs `{ tabs[] }` to
      `stash.allen.company`.
