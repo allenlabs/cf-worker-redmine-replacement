@@ -43,6 +43,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     // resolve it in their own data SQL.  Saves a Hetzner round-trip
     // (~400 ms) on every page.
     const req = getRequest();
+    // Skip the gate on client-side router navigations — `getRequest()` is
+    // server-only, so a missing `req` means we're running on the client.
+    // The initial SSR already gated; client-side nav after that doesn't
+    // need to re-verify (the JWT cookie is unreadable from JS anyway).
+    // Throwing `redirect({ to: '/auth/login' })` here used to silently
+    // break every in-app Link click.
+    if (!req) return;
     const cookie = req?.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
     // `req.url` is normally a fully-qualified URL on the worker, but during
