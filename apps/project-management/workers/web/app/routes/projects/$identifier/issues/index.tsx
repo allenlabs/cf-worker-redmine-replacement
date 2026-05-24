@@ -27,7 +27,8 @@ const loadIssues = createServerFn({ method: 'GET' })
   )
   .handler(async ({ data }) => {
     const me = await getCurrentUser();
-    const ctx = me ? await buildAuthContext(me.id) : null;
+    // Admins don't need the membership scan — skip it.
+    const ctx = me && !me.isAdmin ? await buildAuthContext(me.id) : null;
     const db = getDb();
     const project = await getProjectImpl(db, me, ctx, data.identifier);
     const issues = await listIssuesImpl(db, {

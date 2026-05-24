@@ -12,7 +12,8 @@ const loadProject = createServerFn({ method: 'GET' })
   .inputValidator((d: unknown) => z.object({ identifier: z.string() }).parse(d))
   .handler(async ({ data }) => {
     const me = await getCurrentUser();
-    const ctx = me ? await buildAuthContext(me.id) : null;
+    // Admins don't need the membership scan — skip it.
+    const ctx = me && !me.isAdmin ? await buildAuthContext(me.id) : null;
     return getProjectImpl(getDb(), me, ctx, data.identifier);
   });
 
