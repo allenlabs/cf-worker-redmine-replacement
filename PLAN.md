@@ -213,12 +213,19 @@ cleanly into Phase A–D:
       mobile widgets, menubar.
     - API: POST `/v1/set`, GET `/v1/current`, GET `/v1/history?limit=50`.
       All HMAC-signed via `intent.api_clients`.
-17. **`dopamine` — celebration ledger**.  Captures every PR-merged,
-    issue-closed, focus-session-completed, inbox-zeroed event from
-    the other apps (via gateway-style HMAC webhooks) and renders a
-    feed of "things you did".  Surfaces back during low-energy
-    moments via a "remind me of a win" button.  Anti-imposter-syndrome
-    by design.
+17. **`dopamine` — celebration ledger**. **[DONE 2026-05-24]**
+    - Live at https://dopamine.allenlabs.org (web) +
+      https://dopamine-api.allenlabs.org (HMAC API).
+    - Storage: `dopamine.events(id, user_id, kind, title, body,
+      source_ref, importance, tags[], occurred_at)` + GIN tags index +
+      `dopamine.api_clients`.
+    - Captures PR-merged / issue-closed / focus-completed / inbox-zeroed /
+      custom events via HMAC webhooks from other apps.  Renders the last
+      50 wins on `/`; full paginated list at `/all`.  "Remind me of a
+      win" button surfaces a random highlight from the last 90 days.
+    - API: POST `/v1/event`, GET `/v1/recent?limit=50`,
+      GET `/v1/random?since_days=90`.  All HMAC-signed via
+      `dopamine.api_clients`.
 
 ## E2E testing strategy
 
