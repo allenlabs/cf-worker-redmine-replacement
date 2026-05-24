@@ -26,6 +26,22 @@ test.describe('inbox.allen.company', () => {
     await expect(page.locator(`[data-testid="item-${capturedId}"]`)).toBeVisible();
     await expect(page.locator(`[data-testid="item-${capturedId}"]`)).toContainText(text);
 
+    // The CaptureBox <input> is autoFocused on mount, and the inbox keydown
+    // handler explicitly skips keypresses while typing into an INPUT/
+    // TEXTAREA.  We have to defocus the capture box before `j`/`d` will
+    // actually drive the triage cursor — click the heading (a no-op for
+    // app state) to move focus to <body>.
+    await page.locator('h1', { hasText: 'Inbox' }).click();
+    // Belt-and-braces: poll until the input is no longer the active element.
+    await expect
+      .poll(async () =>
+        await page.evaluate(
+          () => document.activeElement?.tagName ?? null,
+        ),
+        { timeout: 5_000 },
+      )
+      .not.toBe('INPUT');
+
     // Drop via keyboard shortcut `d`.  The cursor starts at 0; first move
     // it onto our row by repeatedly pressing `j` until our row is selected
     // (cheap because we just captured into a fresh inbox section).
