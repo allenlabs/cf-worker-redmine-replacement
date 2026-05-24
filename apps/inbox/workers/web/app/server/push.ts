@@ -286,7 +286,7 @@ export async function sendCaptureNotificationImpl(
     title: 'New in inbox',
     body,
     tag: 'inbox-capture',
-    data: { url: `${env.PUBLIC_BASE_URL ?? 'https://inbox.allen.company'}/` },
+    data: { url: `${env.PUBLIC_BASE_URL ?? 'https://inbox.allenlabs.org'}/` },
   } as const;
   // `vapidTransport.send` accepts either a single subscription or an
   // array via `rendered.to`.  We dispatch per-subscription so a single

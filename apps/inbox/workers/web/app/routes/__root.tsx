@@ -19,7 +19,7 @@ interface RouterContext {
 
 // Public paths a signed-out browser must still hit cleanly.  /api/capture
 // is HMAC-gated and dispatched in its own server handler; we don't gate it
-// here.  The API worker (inbox-api.allen.company) handles HMAC traffic for
+// here.  The API worker (inbox-api.allenlabs.org) handles HMAC traffic for
 // CLI/extension — this list is for SSO-cookie callers only.
 const PUBLIC_PATHS = new Set([
   '/auth/login',

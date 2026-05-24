@@ -424,7 +424,7 @@ describe('sendCaptureNotificationImpl', () => {
     expect(r0.failed_count).toBe(1);
   });
 
-  it('uses PUBLIC_BASE_URL when set; falls back to inbox.allen.company otherwise', async () => {
+  it('uses PUBLIC_BASE_URL when set; falls back to inbox.allenlabs.org otherwise', async () => {
     await seedSubscription(db, userId, 'https://push.example/a');
     const env = makeTestEnv({ PUBLIC_BASE_URL: 'https://custom.test' });
     // Tap the transport call to inspect the rendered data.url.
@@ -446,7 +446,7 @@ describe('sendCaptureNotificationImpl', () => {
     delete (env2 as { PUBLIC_BASE_URL?: string }).PUBLIC_BASE_URL;
     seen.length = 0;
     await sendCaptureNotificationImpl(env2, db, userId, { id: 1, text: 'x' }, { transport });
-    expect(seen[0]?.url).toBe('https://inbox.allen.company/');
+    expect(seen[0]?.url).toBe('https://inbox.allenlabs.org/');
   });
 });
 

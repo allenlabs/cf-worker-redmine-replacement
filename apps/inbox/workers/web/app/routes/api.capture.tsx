@@ -13,7 +13,7 @@ import { readSessionToken, verifySessionToken } from '~/server/session.server';
  *
  * Cookie-authenticated capture endpoint used by the in-browser extension's
  * background page and the mobile PWA's offline queue drain.  HMAC traffic
- * (CLI, third-party automation) goes to inbox-api.allen.company instead;
+ * (CLI, third-party automation) goes to inbox-api.allenlabs.org instead;
  * the impl is shared.
  */
 export const Route = createFileRoute('/api/capture')({
