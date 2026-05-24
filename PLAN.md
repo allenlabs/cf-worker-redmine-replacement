@@ -91,15 +91,30 @@ day with the existing infra (auth, Hyperdrive, TanStack Start patterns).
 
 ### Phase C — Habit / journal layer (each ~ 0.5 day)
 
-7. **`nudge`** — Habits w/ pattern viz (not streaks — streaks are an ADHD
-   anti-pattern, one miss kills motivation).
-   - Storage: `nudge.habits` + `nudge.completions`.
-   - Visualization: heatmap of last 90 days.  Highlight pattern recovery,
-     not unbroken streaks.
-8. **`journal`** — Prompt-driven daily journal.
-   - Three rotating prompts (random from a pool) every morning.
-   - "Done in 3 sentences" defaults to 3 textareas, soft cap.
-   - Markdown export to R2 + monthly digest emailed.
+7. **`nudge`** — User-scheduled reminders w/ ADHD-friendly framing. **[DONE 2026-05-24]**
+   - Live at https://nudge.allenlabs.org (web) +
+     https://nudge-api.allenlabs.org (HMAC API) + nudge-cron (every minute).
+   - Storage: `nudge.reminders(id, user_id, text, fire_at, next_fire_at,
+     recurrence, tags, delivered_at, dismissed_at, snoozed_until, source)` +
+     `nudge.api_clients`.
+   - Recurrence: `daily` / `weekly` / `monthly` / `every:Nx` (s|m|h|d).
+   - Cron worker scans due reminders → push fan-out via inbox-api, advances
+     recurring fire_at.  Distinct from concierge (AI-driven).
+   - API: POST `/v1/create`, GET `/v1/upcoming`, POST `/v1/dismiss`,
+     POST `/v1/snooze`, POST `/v1/delete`.  All HMAC-signed via
+     `nudge.api_clients`.
+8. **`journal`** — Daily check-in + mood/energy tracking. **[DONE 2026-05-24]**
+   - Live at https://journal.allenlabs.org (web) +
+     https://journal-api.allenlabs.org (HMAC API).
+   - Storage: `journal.entries(id, user_id, entry_date, mood, energy, focus,
+     mind, blockers, tags, source)` UNIQUE (user_id, entry_date) for upsert +
+     `journal.api_clients`.
+   - Three 1-5 scales (mood/energy/focus) + free-text "what's on your mind?" +
+     "what's blocking you?".  Short prompts, NO streak-shame.
+   - History view: 90-day heatmap with 5 intensity buckets.  Missed days
+     fade but never reset a counter.
+   - API: POST `/v1/checkin` (upsert by date), GET `/v1/today`,
+     GET `/v1/range?from&to`, GET `/v1/stats`, GET `/v1/entry?date`.
 
 ### Phase D — Deep integrations (each ~ 1 day)
 

@@ -24,6 +24,8 @@
     "test:concierge": "npm run -w @cf-worker-apps/concierge test",
     "test:read-later": "npm run -w @cf-worker-apps/read-later test",
     "test:stash": "npm run -w @cf-worker-apps/stash test",
+    "test:nudge": "npm run -w @cf-worker-apps/nudge test",
+    "test:journal": "npm run -w @cf-worker-apps/journal test",
     "test:cli": "npm run -w @allenlabs/cli test",
     "test:e2e": "npm run -w @cf-worker-apps/e2e test",
     "e2e:cleanup": "npm run -w @cf-worker-apps/e2e cleanup",
@@ -46,7 +48,12 @@
     "dev:read-later": "npm run -w @cf-worker-apps/read-later dev",
     "dev:read-later:api": "npm run -w @cf-worker-apps/read-later dev:api",
     "dev:stash": "npm run -w @cf-worker-apps/stash dev",
-    "dev:stash:api": "npm run -w @cf-worker-apps/stash dev:api"
+    "dev:stash:api": "npm run -w @cf-worker-apps/stash dev:api",
+    "dev:nudge": "npm run -w @cf-worker-apps/nudge dev",
+    "dev:nudge:api": "npm run -w @cf-worker-apps/nudge dev:api",
+    "dev:nudge:cron": "npm run -w @cf-worker-apps/nudge dev:cron",
+    "dev:journal": "npm run -w @cf-worker-apps/journal dev",
+    "dev:journal:api": "npm run -w @cf-worker-apps/journal dev:api"
   },
   "engines": {
     "node": ">=20"
