@@ -16,7 +16,7 @@ import {
   readSessionToken,
   revokeSession,
   verifySessionToken,
-} from '~/server/session';
+} from '~/server/session.server';
 
 const json = (data: unknown, init?: ResponseInit) =>
   new Response(JSON.stringify(data), {

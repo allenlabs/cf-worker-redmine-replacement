@@ -5,7 +5,7 @@ import {
   clearCookieHeader,
   readSessionToken,
   revokeSession,
-} from '~/server/session';
+} from '~/server/session.server';
 
 /**
  * Logout — revoke the local session (so even an unexpired JWT stops

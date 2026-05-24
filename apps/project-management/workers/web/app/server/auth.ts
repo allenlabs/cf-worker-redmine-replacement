@@ -13,7 +13,7 @@ import {
   readSessionToken,
   verifySessionToken,
   type SessionPayload,
-} from './session';
+} from './session.server';
 
 export interface CurrentUser {
   id: number;

@@ -3,7 +3,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { sql } from 'drizzle-orm';
 import { getRequest } from '@tanstack/react-start/server';
 import { getDb, getEnv } from '~/server/auth-runtime.server';
-import { readSessionToken, verifySessionToken } from '~/server/session';
+import { readSessionToken, verifySessionToken } from '~/server/session.server';
 import { timeAgo } from '~/lib/format';
 
 interface HomePayload {

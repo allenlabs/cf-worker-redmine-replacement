@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 import { z } from 'zod';
 import { findOrCreateUserBySsoImpl } from '~/server/auth';
 import { getDb, getEnv } from '~/server/auth-runtime.server';
-import { cookieHeader, verifySessionToken } from '~/server/session';
+import { cookieHeader, verifySessionToken } from '~/server/session.server';
 
 /**
  * Land here after the user completed sign-in on auth.allen.company.  We

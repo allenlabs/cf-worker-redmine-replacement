@@ -17,7 +17,7 @@ import {
   findOrCreateUserBySsoImpl,
   userFromSessionImpl,
 } from '~/server/auth';
-import { cookieHeader } from '~/server/session';
+import { cookieHeader } from '~/server/session.server';
 
 let db: TestDB;
 

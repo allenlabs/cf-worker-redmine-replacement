@@ -5,7 +5,7 @@ import { getRequest } from '@tanstack/react-start/server';
 import { PriorityBadge, StatusBadge, TrackerBadge } from '~/components/badges';
 import { formatDate, timeAgo } from '~/lib/format';
 import { getDb, getEnv } from '~/server/auth-runtime.server';
-import { readSessionToken, verifySessionToken } from '~/server/session';
+import { readSessionToken, verifySessionToken } from '~/server/session.server';
 
 // One SQL with four CTEs returning their results as JSON — one TCP
 // round-trip to Hetzner (~250 ms) instead of four parallel queries

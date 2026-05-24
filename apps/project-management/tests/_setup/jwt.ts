@@ -1,7 +1,7 @@
 import { SignJWT, exportJWK, generateKeyPair, createLocalJWKSet, type createRemoteJWKSet } from 'jose';
-import { _setJwksForTests, _clearJwksCacheForTests } from '~/server/session';
+import { _setJwksForTests, _clearJwksCacheForTests } from '~/server/session.server';
 import type { Env } from '~/lib/env';
-import type { SessionPayload } from '~/server/session';
+import type { SessionPayload } from '~/server/session.server';
 
 /**
  * Test helpers for the JWKS-based session flow.  Mirrors what
