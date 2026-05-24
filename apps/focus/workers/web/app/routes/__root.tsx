@@ -38,8 +38,23 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const req = getRequest();
     const cookie = req?.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
-    const url = req ? new URL(req.url) : null;
-    const isPublic = url ? PUBLIC_PATHS.has(url.pathname) : false;
+    // `req.url` is normally fully-qualified, but during a server-fn-driven
+    // router invalidation TanStack Start can hand back a path-only string
+    // ("/api/end"), which `new URL(...)` rejects.  Fall back to a manual
+    // pathname extract so a server-fn loop never crashes into the React
+    // error boundary.
+    let pathname: string | null = null;
+    if (req?.url) {
+      try {
+        pathname = new URL(req.url).pathname;
+      } catch {
+        const u = String(req.url);
+        const q = u.indexOf('?');
+        const trimmed = q >= 0 ? u.slice(0, q) : u;
+        pathname = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+      }
+    }
+    const isPublic = pathname ? PUBLIC_PATHS.has(pathname) : false;
     if (token) {
       const env = getEnv();
       const payload = await verifySessionToken(env, token);
