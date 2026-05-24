@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [[routes]]
-pattern = "context-api.allen.company"
+pattern = "context-api.allenlabs.org"
 custom_domain = true
 
 # Hyperdrive → Hetzner Postgres (`allenlabs` DB, `context` schema).
@@ -16,7 +16,7 @@ id = "0b76cf08a44443d39d12f0d51ed059f5"
 
 [vars]
 APP_NAME = "Context API"
-PUBLIC_BASE_URL = "https://context-api.allen.company"
+PUBLIC_BASE_URL = "https://context-api.allenlabs.org"
 
 # Secrets — set with `wrangler secret put …`:
 #   OTEL_BEARER_TOKEN

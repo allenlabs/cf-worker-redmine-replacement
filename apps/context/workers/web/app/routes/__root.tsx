@@ -19,7 +19,7 @@ interface RouterContext {
 
 // Public paths a signed-out browser must still hit cleanly.  /api/* routes
 // are cookie-or-HMAC-gated and dispatched in their own server handlers;
-// we don't gate them here.  The API worker (context-api.allen.company)
+// we don't gate them here.  The API worker (context-api.allenlabs.org)
 // handles HMAC traffic for CLI/extension — this list is for SSO-cookie
 // callers only.
 const PUBLIC_PATHS = new Set([

@@ -174,19 +174,19 @@ export function LinkedEntities({ snapshot }: LinkedEntitiesProps) {
   if (snapshot.focusSessionId) {
     items.push({
       label: `Focus session #${snapshot.focusSessionId}`,
-      href: `https://focus.allen.company/history`,
+      href: `https://focus.allenlabs.org/history`,
     });
   }
   if (snapshot.inboxItemId) {
     items.push({
       label: `Inbox item #${snapshot.inboxItemId}`,
-      href: `https://inbox.allen.company/`,
+      href: `https://inbox.allenlabs.org/`,
     });
   }
   if (snapshot.pmIssueId) {
     items.push({
       label: `PM issue #${snapshot.pmIssueId}`,
-      href: `https://pm.allen.company/issues/${snapshot.pmIssueId}`,
+      href: `https://projects.allenlabs.org/issues/${snapshot.pmIssueId}`,
     });
   }
   if (items.length === 0) return null;

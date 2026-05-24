@@ -8,7 +8,7 @@ import { readSessionToken, verifySessionToken } from '~/server/session.server';
  * POST /api/save
  *
  * Cookie-authenticated save endpoint used by the in-browser UI.  HMAC
- * traffic (CLI, third-party automation) goes to context-api.allen.company
+ * traffic (CLI, third-party automation) goes to context-api.allenlabs.org
  * instead; the impl is shared.
  */
 export const Route = createFileRoute('/api/save')({
