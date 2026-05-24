@@ -110,6 +110,36 @@ day with the existing infra (auth, Hyperdrive, TanStack Start patterns).
     sessions, journal entries) and weekly emails: "you captured 14 things
     this week, 9 of them about <topic> — should that be a project?"
 
+    **Proactive nudges (priority feature, lifted out of Phase E):**
+    A `concierge` worker runs on a cron schedule + on cross-app events
+    (issue closed, focus session ended, inbox idle >24 h).  It pulls the
+    user's recent activity across every app via internal API and asks an
+    **OpenAI-compatible LLM** to compose a 1-2 sentence question, then
+    delivers it via:
+    - Web Push (existing inbox subscription endpoint).
+    - Email (existing CF Email Workers binding).
+    - In-app card on `today.allen.company` (the "AI nudge" slot).
+
+    Example nudges the LLM is prompted to consider:
+    - "You closed PM issue 'fix /search 500s' yesterday — the inbox
+      item about /admin/users 502s is still open.  Next?"
+    - "Yesterday's focus session abandoned 8 min in.  What got in
+      the way?"
+    - "No focus sessions in 3 days.  Pick one from inbox to start?"
+    - "You captured 'try Bun for ingest' three times this month.
+      Promote to a PM project?"
+
+    Storage:  `concierge.nudges(id, user_id, topic, question, channel,
+    sent_at, opened_at, dismissed_at, replied_at, reply_text)`.
+    Replies (from notification action or email reply via Mailchannels
+    webhook) feed back to the LLM for follow-ups.
+
+    Credentials: OpenAI-compatible endpoint URL + API key + model name
+    as wrangler secrets `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`.
+    Default to OpenAI but the user can point at any compatible
+    endpoint (Anthropic via a proxy, Ollama, LiteLLM, etc.).  Save
+    creds to pass-cli as `Concierge LLM`.
+
 ### Phase F — Higher-order ADHD scaffolds (newer ideas, not original plan)
 
 These map to research-backed ADHD developer patterns that don't fit
