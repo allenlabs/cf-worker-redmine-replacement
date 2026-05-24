@@ -1,27 +1,13 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { sql } from 'drizzle-orm';
 import { getRequest } from '@tanstack/react-start/server';
 import { getDb, getEnv } from '~/server/auth-runtime.server';
+import { loadHomeImpl } from '~/server/home';
 import { readSessionToken, verifySessionToken } from '~/server/session.server';
 import { timeAgo } from '~/lib/format';
 
-interface HomePayload {
-  projects: Array<{
-    id: number; identifier: string; name: string; description: string;
-    isPublic: boolean; status: string;
-  }>;
-  activities: Array<{
-    id: number; title: string; createdAt: string; userLogin: string;
-    projectName: string | null;
-  }>;
-}
-
-// Single SQL that resolves the current user, the projects they can see,
-// and recent activities in ONE Hetzner round-trip.  Halves the per-route
-// wall time vs the old (auth + buildAuthContext + parallel two queries)
-// shape, since postgres.js opens one TCP socket per request and each
-// extra round-trip costs ~250 ms.
+// Verify the JWT, then dispatch to loadHomeImpl which does the rest in
+// ONE Hetzner round-trip.  See server/home.ts for the SQL.
 const loadHome = createServerFn({ method: 'GET' }).handler(async () => {
   const env = getEnv();
   const req = getRequest();
@@ -30,52 +16,7 @@ const loadHome = createServerFn({ method: 'GET' }).handler(async () => {
   if (!token) return null;
   const payload = await verifySessionToken(env, token);
   if (!payload?.sub) return null;
-  const sub = payload.sub;
-
-  const db = getDb();
-  const result = (await db.execute(
-    sql`
-  WITH
-  me AS (
-    SELECT id, admin AS "isAdmin" FROM pm.users
-    WHERE better_auth_user_id = ${sub} AND status = 'active' LIMIT 1
-  ),
-  user_projects AS (
-    SELECT p.id, p.identifier, p.name, p.description, p.is_public AS "isPublic", p.status
-    FROM pm.projects p
-    WHERE p.status = 'active'
-      AND (
-        p.is_public
-        OR (SELECT "isAdmin" FROM me)
-        OR EXISTS (
-          SELECT 1 FROM pm.members m
-          INNER JOIN pm.roles r ON r.id = m.role_id
-          WHERE m.user_id = (SELECT id FROM me) AND m.project_id = p.id
-        )
-      )
-    ORDER BY p.name
-  ),
-  recent AS (
-    SELECT a.id, a.title, a.created_at AS "createdAt",
-           u.login AS "userLogin",
-           p.name AS "projectName"
-    FROM pm.activities a
-    JOIN pm.users u ON u.id = a.user_id
-    LEFT JOIN pm.projects p ON p.id = a.project_id
-    ORDER BY a.created_at DESC LIMIT 20
-  )
-  SELECT json_build_object(
-    'projects',  COALESCE((SELECT json_agg(up) FROM user_projects up), '[]'::json),
-    'activities', COALESCE((SELECT json_agg(r) FROM recent r), '[]'::json)
-  ) AS data
-    `,
-  )) as unknown;
-  const arr = Array.isArray(result) ? result : (result as { rows?: unknown[] }).rows;
-  const data: HomePayload | null = arr && arr.length > 0
-    ? ((arr[0] as { data?: HomePayload }).data ?? null)
-    : null;
-
-  return data ?? { projects: [], activities: [] };
+  return loadHomeImpl(getDb(), payload.sub);
 });
 
 export const Route = createFileRoute('/')({
