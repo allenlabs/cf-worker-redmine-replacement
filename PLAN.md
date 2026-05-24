@@ -110,6 +110,69 @@ day with the existing infra (auth, Hyperdrive, TanStack Start patterns).
     sessions, journal entries) and weekly emails: "you captured 14 things
     this week, 9 of them about <topic> — should that be a project?"
 
+### Phase F — Higher-order ADHD scaffolds (newer ideas, not original plan)
+
+These map to research-backed ADHD developer patterns that don't fit
+cleanly into Phase A–D:
+
+13. **`pair` — body-doubling**.  Lightweight "I'm working right now"
+    status broadcast to a chosen circle.  Optional one-room WebRTC
+    audio (silence + occasional typing).  Friend can join silently.
+    Cloudflare Realtime SFU handles the room; presence pings via
+    Durable Object.  Killer feature for the "I can't start when alone"
+    pattern.
+14. **`transition` — ritual prompts**.  Three-step prompt that fires
+    when a focus session ends OR when the user runs `al ctx save`:
+    (1) Where am I leaving this?  (2) What's the very next step?
+    (3) What might I forget?  Answers append to the relevant
+    context/inbox/journal automatically — externalises working
+    memory before the brain can drop the thread.
+15. **`gentle` — daily check-ins (not habits)**.  Hard-coded to one
+    screen of soft binary toggles (slept ok?  meds?  ate?  moved?
+    talked to a human?) once a day, *no streak counter*.  Pattern
+    visualisation as a 90-day heatmap.  Missed days fade but don't
+    reset.  Phrasing is "gentle check" not "habit log".
+16. **`intent` — externalised current intent**.  A single text field
+    that lives in the browser PS1 / mobile widget / macOS menu bar.
+    "What I'm doing right now: ___".  Updates touch a single row in
+    `intent.current(user_id, text, updated_at)` and a tiny CF Worker
+    serves the latest value to all surfaces.  The point is making the
+    intent VISIBLE to the user from outside their own head.
+17. **`dopamine` — celebration ledger**.  Captures every PR-merged,
+    issue-closed, focus-session-completed, inbox-zeroed event from
+    the other apps (via gateway-style HMAC webhooks) and renders a
+    feed of "things you did".  Surfaces back during low-energy
+    moments via a "remind me of a win" button.  Anti-imposter-syndrome
+    by design.
+
+## E2E testing strategy
+
+Per-app vitest covers unit + integration on PGlite.  An *additional*
+top-level `tests/e2e/` directory runs **Playwright tests against the
+real deployed workers** at `*.allen.company`.  Goals:
+
+- Cover the actual hydration path (TanStack Start has bitten us with
+  bundle-leak / virtual-module issues before — only browser-level
+  tests catch those).
+- Exercise cross-app integrations (capture inbox → see in today →
+  start focus on it).
+- Validate PWA push notification end-to-end.
+
+Test data isolation:
+- Every test row is tagged: `inbox.items.tags` contains `'e2e-test'`;
+  `focus.sessions.task_text` is prefixed `[e2e]`; `context.snapshots.name`
+  starts `e2e-`; `pm.projects.identifier` starts `e2e-`.
+- A `tests/e2e/teardown.ts` runs after the whole suite (via vitest
+  `globalTeardown` or Playwright `globalTeardown`) and DELETEs every
+  tagged row across all schemas, in dependency order.
+- Teardown is idempotent + safe to run from CLI for manual cleanup.
+- Test user is the existing admin `allenlim@allenlabs.org` — its
+  session cookie is harvested once via the same form-POST trick
+  `extract_cookie.mjs` uses today, then reused across tests.
+
+Layout: `tests/e2e/{inbox,focus,today,context,push}.spec.ts` +
+`tests/e2e/lib/{session,cleanup,fixtures}.ts`.
+
 ## Cross-cutting concerns
 
 - **Auth:** every app SSO via auth.allen.company.  No app holds its own
