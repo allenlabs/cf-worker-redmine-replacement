@@ -38,7 +38,16 @@ const PUBLIC_PATHS = new Set([
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async () => {
-    const req = getRequest();
+    // `getRequest()` reads from h3's AsyncLocalStorage and THROWS on the
+    // client ("No StartEvent found in AsyncLocalStorage"). Catch it and
+    // bail out — the initial SSR already gated this isolate; client-side
+    // nav doesn't need to re-verify (the JWT cookie is httpOnly anyway).
+    // Letting the throw escape used to silently break every in-app Link
+    // click: URL changed via pushState but the new route never rendered
+    // because beforeLoad rejected.
+    let req: Request | undefined;
+    try { req = getRequest(); } catch { return; }
+    if (!req) return;
     const cookie = req?.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
     // `req.url` is normally a fully-qualified URL on the worker, but during
@@ -67,7 +76,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     throw redirect({ to: '/auth/login' });
   },
   loader: async () => {
-    const req = getRequest();
+    // Server-only; returns a shape-compatible default on the client so the
+    // layout stays rendered if the router ever re-runs the loader after
+    // hydration.  See PM/inbox beforeLoad rationale.
+    let req: Request | undefined;
+    try { req = getRequest(); } catch { return { user: null, appName: 'Inbox', vapidPublicKey: '' }; }
     const cookie = req?.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
     const env = getEnv();
