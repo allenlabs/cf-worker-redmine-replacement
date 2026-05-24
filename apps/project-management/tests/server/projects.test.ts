@@ -7,12 +7,21 @@ import {
   makeTestDb,
   addManager,
 } from '../_setup/db';
-import { members, projects, projectTrackers, wikis, enabledModules } from '~/db/schema';
+import {
+  enabledModules,
+  issueCategories,
+  members,
+  projects,
+  projectTrackers,
+  versions,
+  wikis,
+} from '~/db/schema';
 import { type AuthContext, type Permission } from '~/lib/permissions';
 import { type CurrentUser } from '~/server/auth';
 import {
   createProjectImpl,
   deleteProjectImpl,
+  extractRows,
   getProjectImpl,
   listProjectsImpl,
   updateProjectImpl,
@@ -81,6 +90,24 @@ describe('listProjectsImpl', () => {
   });
 });
 
+describe('extractRows (driver shape normalizer)', () => {
+  it('returns the array when postgres.js hands back a Result array', () => {
+    const rows = [{ a: 1 }, { a: 2 }];
+    expect(extractRows(rows)).toBe(rows);
+  });
+
+  it('unwraps drizzle-orm/pglite { rows } shape', () => {
+    const rows = [{ a: 1 }];
+    expect(extractRows({ rows })).toBe(rows);
+  });
+
+  it('returns [] for unexpected shapes', () => {
+    expect(extractRows(null)).toEqual([]);
+    expect(extractRows({})).toEqual([]);
+    expect(extractRows({ rows: 'not-an-array' })).toEqual([]);
+  });
+});
+
 describe('getProjectImpl', () => {
   it('returns hydrated data for a public project (anonymous)', async () => {
     const p = await insertProject(db, { isPublic: true });
@@ -133,11 +160,30 @@ describe('getProjectImpl', () => {
       homepage: '',
       isPublic: true,
     });
+    // Seed a version + category so the version/category mapping branches
+    // in getProjectImpl get exercised (otherwise the .map callbacks stay
+    // uncovered).
+    await db.insert(versions).values({
+      projectId: created.id,
+      name: 'v1.0',
+      description: 'first release',
+      status: 'open',
+      dueDate: '2026-12-31',
+    });
+    await db.insert(issueCategories).values({
+      projectId: created.id,
+      name: 'Bug',
+    });
     const r = await getProjectImpl(db, null, null, created.identifier);
     expect(r.modules.sort()).toEqual([
       'files', 'gantt', 'issue_tracking', 'roadmap', 'time_tracking', 'wiki',
     ]);
     expect(r.trackers.length).toBeGreaterThan(0);
+    expect(r.versions).toHaveLength(1);
+    expect(r.versions[0]!.name).toBe('v1.0');
+    expect(r.versions[0]!.createdAt).toBeInstanceOf(Date);
+    expect(r.categories).toHaveLength(1);
+    expect(r.categories[0]!.name).toBe('Bug');
   });
 });
 

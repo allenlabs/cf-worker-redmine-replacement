@@ -1,17 +1,13 @@
 import { createServerFn } from '@tanstack/react-start';
-import { and, eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { type DB } from '~/db/client';
 import {
   enabledModules,
   issueCategories,
-  issues,
-  issueStatuses,
   members,
   projectTrackers,
   projects,
-  roles,
-  trackers,
   versions,
   wikis,
 } from '~/db/schema';
@@ -60,6 +56,18 @@ export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 
 // ---------- impls (testable without TanStack Start runtime) ----------
 
+// Normalize the result shape of `db.execute(sql\`...\`)` across drivers:
+//   - postgres.js (production via Hyperdrive) returns a Result that is
+//     also a plain array (Array.isArray is true).
+//   - drizzle-orm/pglite (unit tests) returns `{ rows: [...], ... }`.
+// Returning the underlying row array unifies the two callsites.
+// Exported for the unit test; safe to keep on the public API surface.
+export function extractRows(result: unknown): unknown[] {
+  if (Array.isArray(result)) return result;
+  const rows = (result as { rows?: unknown[] } | null | undefined)?.rows;
+  return Array.isArray(rows) ? rows : [];
+}
+
 export async function listProjectsImpl(
   db: DB,
   me: CurrentUser | null,
@@ -79,50 +87,117 @@ export async function getProjectImpl(
   ctx: AuthContext | null,
   identifier: string,
 ) {
-  const project = await db.query.projects.findFirst({
-    where: eq(projects.identifier, identifier),
-  });
-  if (!project) throw new Error('Project not found');
+  // One CTE pulls the project row, related lookups, and issue counts in
+  // a single Hetzner round-trip.  Previously ~7 sequential / parallel
+  // queries — ~200 ms savings per warm hit.
+  const result = (await db.execute(
+    sql`
+      WITH
+      project_row AS (
+        SELECT
+          id, identifier, name, description, homepage,
+          is_public AS "isPublic", parent_id AS "parentId", status,
+          created_at AS "createdAt", updated_at AS "updatedAt"
+        FROM pm.projects
+        WHERE identifier = ${identifier}
+        LIMIT 1
+      ),
+      tracker_rows AS (
+        SELECT t.id, t.name, t.color
+        FROM pm.project_trackers pt
+        JOIN pm.trackers t ON t.id = pt.tracker_id
+        WHERE pt.project_id = (SELECT id FROM project_row)
+        ORDER BY t.position, t.id
+      ),
+      module_rows AS (
+        SELECT name FROM pm.enabled_modules
+        WHERE project_id = (SELECT id FROM project_row)
+      ),
+      version_rows AS (
+        SELECT
+          id, name, description, status, sharing,
+          due_date AS "dueDate",
+          wiki_page AS "wikiPage",
+          project_id AS "projectId",
+          created_at AS "createdAt"
+        FROM pm.versions
+        WHERE project_id = (SELECT id FROM project_row)
+        ORDER BY due_date NULLS LAST, id
+      ),
+      category_rows AS (
+        SELECT
+          id, name, project_id AS "projectId",
+          assigned_to_id AS "assignedToId"
+        FROM pm.issue_categories
+        WHERE project_id = (SELECT id FROM project_row)
+      ),
+      counts_row AS (
+        SELECT
+          COALESCE(SUM(CASE WHEN s.is_closed = false THEN 1 ELSE 0 END), 0)::int AS "openIssues",
+          COALESCE(SUM(CASE WHEN s.is_closed = true  THEN 1 ELSE 0 END), 0)::int AS "closedIssues"
+        FROM pm.issues i
+        JOIN pm.issue_statuses s ON s.id = i.status_id
+        WHERE i.project_id = (SELECT id FROM project_row)
+      )
+      SELECT json_build_object(
+        'project',    (SELECT row_to_json(p) FROM project_row p),
+        'trackers',   COALESCE((SELECT json_agg(t) FROM tracker_rows t), '[]'::json),
+        'modules',    COALESCE((SELECT json_agg(m.name) FROM module_rows m), '[]'::json),
+        'versions',   COALESCE((SELECT json_agg(v) FROM version_rows v), '[]'::json),
+        'categories', COALESCE((SELECT json_agg(c) FROM category_rows c), '[]'::json),
+        'counts',     COALESCE(
+          (SELECT row_to_json(cr) FROM counts_row cr),
+          json_build_object('openIssues', 0, 'closedIssues', 0)
+        )
+      ) AS data
+    `,
+  )) as unknown;
+  // `SELECT json_build_object(...)` always returns exactly one row, so
+  // arr[0].data is the only place the payload can live.
+  const [first] = extractRows(result);
+  const data = (first as {
+    data?: {
+      project: {
+        id: number;
+        identifier: string;
+        name: string;
+        description: string;
+        homepage: string;
+        isPublic: boolean;
+        parentId: number | null;
+        status: 'active' | 'closed' | 'archived';
+        createdAt: string;
+        updatedAt: string;
+      } | null;
+      trackers: Array<{ id: number; name: string; color: string }>;
+      modules: string[];
+      versions: Array<typeof versions.$inferSelect>;
+      categories: Array<typeof issueCategories.$inferSelect>;
+      counts: { openIssues: number; closedIssues: number };
+    };
+  }).data;
+  if (!data?.project) throw new Error('Project not found');
+  const project = data.project;
   if (!project.isPublic) {
     if (!me) throw new UnauthorizedError();
     if (!me.isAdmin && !ctx?.permissionsByProject[project.id]?.has('view_project')) {
       throw new ForbiddenError();
     }
   }
-  const [trackerRows, modules, vers, cats, openIssues, closedIssues] = await Promise.all([
-    db
-      .select({ id: trackers.id, name: trackers.name, color: trackers.color })
-      .from(projectTrackers)
-      .innerJoin(trackers, eq(trackers.id, projectTrackers.trackerId))
-      .where(eq(projectTrackers.projectId, project.id)),
-    db
-      .select({ name: enabledModules.name })
-      .from(enabledModules)
-      .where(eq(enabledModules.projectId, project.id)),
-    db.query.versions.findMany({
-      where: eq(versions.projectId, project.id),
-      orderBy: versions.dueDate,
-    }),
-    db.query.issueCategories.findMany({ where: eq(issueCategories.projectId, project.id) }),
-    db
-      .select({ id: issues.id })
-      .from(issues)
-      .innerJoin(issueStatuses, eq(issues.statusId, issueStatuses.id))
-      .where(and(eq(issues.projectId, project.id), eq(issueStatuses.isClosed, false))),
-    db
-      .select({ id: issues.id })
-      .from(issues)
-      .innerJoin(issueStatuses, eq(issues.statusId, issueStatuses.id))
-      .where(and(eq(issues.projectId, project.id), eq(issueStatuses.isClosed, true))),
-  ]);
-
   return {
     ...project,
-    trackers: trackerRows,
-    modules: modules.map((m) => m.name),
-    versions: vers,
-    categories: cats,
-    counts: { openIssues: openIssues.length, closedIssues: closedIssues.length },
+    // postgres `json_*` returns timestamps as strings; restore Date so
+    // callers keep the same shape as the prior drizzle-driven impl.
+    createdAt: new Date(project.createdAt),
+    updatedAt: new Date(project.updatedAt),
+    trackers: data.trackers,
+    modules: data.modules,
+    versions: data.versions.map((v) => ({
+      ...v,
+      createdAt: new Date(v.createdAt as unknown as string),
+    })),
+    categories: data.categories,
+    counts: data.counts,
   };
 }
 
