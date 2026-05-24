@@ -28,7 +28,9 @@
     "test:journal": "npm run -w @cf-worker-apps/journal test",
     "test:intent": "npm run -w @cf-worker-apps/intent test",
     "test:dopamine": "npm run -w @cf-worker-apps/dopamine test",
+    "test:transition": "npm run -w @cf-worker-apps/transition test",
     "test:solved": "npm run -w @cf-worker-apps/solved test",
+    "test:gentle": "npm run -w @cf-worker-apps/gentle test",
     "test:cli": "npm run -w @allenlabs/cli test",
     "test:e2e": "npm run -w @cf-worker-apps/e2e test",
     "e2e:cleanup": "npm run -w @cf-worker-apps/e2e cleanup",
@@ -61,6 +63,8 @@
     "dev:intent:api": "npm run -w @cf-worker-apps/intent dev:api",
     "dev:dopamine": "npm run -w @cf-worker-apps/dopamine dev",
     "dev:dopamine:api": "npm run -w @cf-worker-apps/dopamine dev:api",
+    "dev:transition": "npm run -w @cf-worker-apps/transition dev",
+    "dev:transition:api": "npm run -w @cf-worker-apps/transition dev:api",
     "dev:solved": "npm run -w @cf-worker-apps/solved dev",
     "dev:solved:api": "npm run -w @cf-worker-apps/solved dev:api"
   },

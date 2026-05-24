@@ -191,17 +191,36 @@ cleanly into Phase A–D:
     Cloudflare Realtime SFU handles the room; presence pings via
     Durable Object.  Killer feature for the "I can't start when alone"
     pattern.
-14. **`transition` — ritual prompts**.  Three-step prompt that fires
-    when a focus session ends OR when the user runs `al ctx save`:
-    (1) Where am I leaving this?  (2) What's the very next step?
-    (3) What might I forget?  Answers append to the relevant
-    context/inbox/journal automatically — externalises working
-    memory before the brain can drop the thread.
-15. **`gentle` — daily check-ins (not habits)**.  Hard-coded to one
-    screen of soft binary toggles (slept ok?  meds?  ate?  moved?
-    talked to a human?) once a day, *no streak counter*.  Pattern
-    visualisation as a 90-day heatmap.  Missed days fade but don't
-    reset.  Phrasing is "gentle check" not "habit log".
+14. **`transition` — ritual prompts**. **[DONE 2026-05-24]**
+    - Live at https://transition.allenlabs.org (web) +
+      https://transition-api.allenlabs.org (HMAC API).
+    - Storage: `transition.rituals(id, user_id, leaving_at, next_step,
+      might_forget, target, created_at)` + `transition.api_clients`.
+    - Three-step prompt that fires when a focus session ends OR when the
+      user runs `al ctx save`: (1) Where am I leaving this?  (2) What's
+      the very next step?  (3) What might I forget?  Optional target
+      (context | inbox | journal) for downstream fan-out.
+    - v1 STORES only.  Fan-out to the chosen target's API is a TODO in
+      `saveRitualImpl` (server/transition.ts).
+    - API: POST `/v1/save`, GET `/v1/recent?limit=20`.  All HMAC-signed
+      via `transition.api_clients`.
+15. **`gentle` — daily check-ins (not habits)**. **[DONE 2026-05-24]**
+    - Live at https://gentle.allenlabs.org (web) +
+      https://gentle-api.allenlabs.org (HMAC API).
+    - Storage: `gentle.checkins(id, user_id, entry_date, slept_ok, meds,
+      ate, moved, talked, note, created_at, updated_at)` UNIQUE (user_id,
+      entry_date) + `gentle.api_clients`.  Every toggle is nullable —
+      explicit "no" still counts as engaging; only TRUE flips light up the
+      heatmap.
+    - One screen of soft binary toggles (slept ok?  meds?  ate?  moved?
+      talked to a human?) once a day, **NO streak counter**, **NO** "you
+      missed N days" messaging.  Optional one-line note.  Pattern
+      visualisation as a 90-day heatmap.  Missed days FADE (bucket 0)
+      but never reset anything.
+    - API: POST `/v1/checkin` (upsert by date), GET `/v1/today`,
+      GET `/v1/range?from=&to=`.  All HMAC-signed via `gentle.api_clients`.
+    - No cron, no web push, no nudging — the entire point is to make this
+      app *not* nag.
 16. **`intent` — externalised current intent**. **[DONE 2026-05-24]**
     - Live at https://intent.allenlabs.org (web) +
       https://intent-api.allenlabs.org (HMAC API).
