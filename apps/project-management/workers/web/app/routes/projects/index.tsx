@@ -126,6 +126,7 @@ function ProjectsListPage() {
               <Link
                 to="/projects/$identifier"
                 params={{ identifier: p.identifier }}
+                reloadDocument
                 className="font-medium text-base"
               >
                 {p.name}

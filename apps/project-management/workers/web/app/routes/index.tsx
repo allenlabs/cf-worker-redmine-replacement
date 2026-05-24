@@ -56,7 +56,7 @@ function HomePage() {
         <ul className="divide-y divide-gray-100">
           {projects.map((p) => (
             <li key={p.id} className="py-2">
-              <Link to="/projects/$identifier" params={{ identifier: p.identifier }} className="font-medium">
+              <Link to="/projects/$identifier" params={{ identifier: p.identifier }} reloadDocument className="font-medium">
                 {p.name}
               </Link>
               {p.description ? <p className="text-sm text-gray-600 mt-0.5">{p.description}</p> : null}
