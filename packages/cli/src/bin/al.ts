@@ -17,11 +17,17 @@ import {
   distractCommand,
   statusCommand,
 } from '../commands/focus.js';
+import {
+  saveCommand as ctxSaveCommand,
+  restoreCommand as ctxRestoreCommand,
+  listCommand as ctxListCommand,
+  deleteCommand as ctxDeleteCommand,
+} from '../commands/ctx.js';
 import { loginCommand } from '../commands/login.js';
 import { configCommand } from '../commands/config.js';
 import { shellPromptCommand } from '../commands/shell-prompt.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.3.0';
 
 const program = new Command();
 program
@@ -92,6 +98,53 @@ focus
   .description('show the current session (zero-latency, local cache)')
   .action(async (_opts, cmd) => process.exit(await statusCommand(flags(cmd))));
 
+// ---------- ctx ----------
+
+const ctx = program.command('ctx').description('working-context snapshots');
+ctx
+  .command('save <name...>')
+  .description('snapshot the current working context')
+  .option('-n, --note <text>', 'free-form note attached to the snapshot')
+  .option('--focus-session <id>', 'link to a focus session id')
+  .option('--inbox-item <id>', 'link to an inbox item id')
+  .option('--pm-issue <id>', 'link to a project-management issue id')
+  .action(
+    async (
+      nameParts: string[],
+      opts: { note?: string; focusSession?: string; inboxItem?: string; pmIssue?: string },
+      cmd,
+    ) =>
+      process.exit(
+        await ctxSaveCommand(nameParts.join(' '), {
+          ...flags(cmd),
+          note: opts.note,
+          focusSession: opts.focusSession,
+          inboxItem: opts.inboxItem,
+          pmIssue: opts.pmIssue,
+        }),
+      ),
+  );
+ctx
+  .command('restore <nameOrId...>')
+  .description('print a previously-saved context (and copy cwd to clipboard)')
+  .option('--print-only', "don't try to clipboard the cwd; just print it")
+  .action(async (parts: string[], opts: { printOnly?: boolean }, cmd) =>
+    process.exit(
+      await ctxRestoreCommand(parts.join(' '), { ...flags(cmd), printOnly: opts.printOnly }),
+    ),
+  );
+ctx
+  .command('list')
+  .description('list recent snapshots')
+  .action(async (_opts, cmd) => process.exit(await ctxListCommand(flags(cmd))));
+ctx
+  .command('delete <id>')
+  .description('delete a snapshot')
+  .option('-y, --yes', 'skip the interactive confirmation')
+  .action(async (id: string, opts: { yes?: boolean }, cmd) =>
+    process.exit(await ctxDeleteCommand(id, { ...flags(cmd), yes: opts.yes })),
+  );
+
 // ---------- top-level ----------
 
 program
@@ -116,7 +169,7 @@ program
 // arg isn't a known subcommand.
 
 const KNOWN_SUBCOMMANDS = new Set([
-  'inbox', 'focus', 'login', 'config', 'shell-prompt', 'help',
+  'inbox', 'focus', 'ctx', 'login', 'config', 'shell-prompt', 'help',
 ]);
 
 async function main(): Promise<void> {

@@ -10,6 +10,7 @@ import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 
 import {
+  APP_NAMES,
   DEFAULTS,
   loadConfig,
   saveConfig,
@@ -29,6 +30,7 @@ import {
 const PASS_CLI_ITEMS: Record<AppName, string> = {
   inbox: 'Inbox API HMAC',
   focus: 'Focus API HMAC',
+  context: 'Context API HMAC',
 };
 
 /** Try to fetch a secret from pass-cli.  Returns null on any failure. */
@@ -59,7 +61,7 @@ export async function loginCommand(flags: ModeFlags = {}, io: IO = makeIO()): Pr
   const existing = await loadConfig();
   const next: CliConfig = { ...existing };
 
-  for (const app of ['inbox', 'focus'] as AppName[]) {
+  for (const app of APP_NAMES) {
     io.stdout(`\n== ${app} ==`);
     const defaults = DEFAULTS[app];
     const existingApp = existing[app];
@@ -90,7 +92,7 @@ export async function loginCommand(flags: ModeFlags = {}, io: IO = makeIO()): Pr
   await saveConfig(next);
 
   io.stdout('\n== health check ==');
-  for (const app of ['inbox', 'focus'] as AppName[]) {
+  for (const app of APP_NAMES) {
     const cfg = next[app];
     if (!cfg) { io.stdout(`  ${app}: (not configured)`); continue; }
     const h = await pingHealth(cfg.url);

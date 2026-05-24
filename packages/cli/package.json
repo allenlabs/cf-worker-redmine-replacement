@@ -1,7 +1,7 @@
 {
   "name": "@allenlabs/cli",
-  "version": "0.1.0",
-  "description": "Zero-friction CLI for the Allen Labs ADHD-developer SaaS suite (inbox, focus, …).",
+  "version": "0.3.0",
+  "description": "Zero-friction CLI for the Allen Labs ADHD-developer SaaS suite (inbox, focus, context, …).",
   "type": "module",
   "bin": {
     "al": "./dist/bin/al.js"

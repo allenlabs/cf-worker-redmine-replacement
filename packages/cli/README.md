@@ -36,6 +36,11 @@ al focus stop                     # end the current session
 al focus distract <label...>      # log a distraction
 al focus status                   # show current session (zero-latency)
 
+al ctx save <name> [--note ...]   # snapshot cwd/branch/tmux/files/processes
+al ctx restore <name|id>          # print + clipboard the cd command
+al ctx list                       # 20 most-recent snapshots
+al ctx delete <id> [-y]           # delete (confirm unless --yes)
+
 al login                          # interactive setup
 al config                         # show resolved config + endpoint health
 al shell-prompt                   # one-line snippet for PS1 (see below)
@@ -53,8 +58,23 @@ Lives at `~/.config/allenlabs/cli.json` (chmod `0600`). Run `al login` to
 seed it; it walks you through endpoint + HMAC secret for each app and
 smoke-tests `/health`.
 
-Secrets come from `pass-cli` (`Inbox API HMAC`, `Focus API HMAC` items in
-the `Development` vault) when available; otherwise you paste them.
+Secrets come from `pass-cli` (`Inbox API HMAC`, `Focus API HMAC`,
+`Context API HMAC` items in the `Development` vault) when available;
+otherwise you paste them.
+
+## Working-context snapshots
+
+`al ctx save "fixing auth bug"` shells out to `git`, `tmux`, `ls`, and
+`ps` to capture *where you were* — cwd, branch, porcelain status, MRU
+files, tmux window list, top-CPU processes — and POSTs the lot to
+`context-api.allen.company`. Every source is best-effort: no git repo,
+no `$TMUX`, missing binary → that source is skipped, the rest still
+ship.
+
+`al ctx restore <name|id>` prints the snapshot, bumps `restored_count`
+server-side, and copies a quoted `cd '<cwd>'` to your clipboard
+(`pbcopy` / `wl-copy` / `xclip`, first one that works). Add
+`--print-only` to skip the clipboard write.
 
 ## Shell prompt integration
 

@@ -2,7 +2,7 @@
 
 /* v8 ignore start — thin wrapper over lib/* (tested) + network. */
 
-import { configPath, loadConfig, type AppName } from '../lib/config.js';
+import { APP_NAMES, configPath, loadConfig } from '../lib/config.js';
 import { pingHealth } from '../lib/hmac.js';
 import { makeIO, resolveMode, type IO, type ModeFlags } from '../lib/output.js';
 
@@ -19,7 +19,7 @@ export async function configCommand(flags: ModeFlags = {}, io: IO = makeIO()): P
   if (mode === 'json') {
     const payload: Record<string, unknown> = { path, apps: {} };
     const apps = payload.apps as Record<string, unknown>;
-    for (const app of ['inbox', 'focus'] as AppName[]) {
+    for (const app of APP_NAMES) {
       const c = cfg[app];
       if (!c) { apps[app] = null; continue; }
       const h = await pingHealth(c.url);
@@ -35,7 +35,7 @@ export async function configCommand(flags: ModeFlags = {}, io: IO = makeIO()): P
   }
 
   io.stdout(`config: ${path}`);
-  for (const app of ['inbox', 'focus'] as AppName[]) {
+  for (const app of APP_NAMES) {
     const c = cfg[app];
     if (!c) {
       io.stdout(`  ${app}: (not configured — run \`al login\`)`);

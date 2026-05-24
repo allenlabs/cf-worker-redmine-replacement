@@ -17,13 +17,17 @@ export interface AppConfig {
 export interface CliConfig {
   inbox?: AppConfig;
   focus?: AppConfig;
+  context?: AppConfig;
 }
 
-export type AppName = 'inbox' | 'focus';
+export type AppName = 'inbox' | 'focus' | 'context';
+
+export const APP_NAMES: readonly AppName[] = ['inbox', 'focus', 'context'] as const;
 
 export const DEFAULTS: Record<AppName, { url: string; client_id: string }> = {
   inbox: { url: 'https://inbox-api.allen.company', client_id: 'cli' },
   focus: { url: 'https://focus-api.allen.company', client_id: 'cli' },
+  context: { url: 'https://context-api.allen.company', client_id: 'cli' },
 };
 
 /** Resolve the config file path. Respects XDG_CONFIG_HOME, falls back to ~/.config. */
@@ -62,7 +66,7 @@ export function normalizeConfig(input: unknown): CliConfig {
   if (!input || typeof input !== 'object') return {};
   const obj = input as Record<string, unknown>;
   const out: CliConfig = {};
-  for (const app of ['inbox', 'focus'] as const) {
+  for (const app of APP_NAMES) {
     const section = obj[app];
     if (!section || typeof section !== 'object') continue;
     const s = section as Record<string, unknown>;
