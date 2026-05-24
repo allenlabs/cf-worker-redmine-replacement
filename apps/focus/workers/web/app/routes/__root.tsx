@@ -35,7 +35,13 @@ const PUBLIC_PATHS = new Set([
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async () => {
-    const req = getRequest();
+    // `getRequest()` reads from h3's AsyncLocalStorage and THROWS on the
+    // client. Catch it and bail out — the initial SSR already gated this
+    // isolate; letting the throw escape used to silently break every
+    // in-app Link click.
+    let req: Request | undefined;
+    try { req = getRequest(); } catch { return; }
+    if (!req) return;
     const cookie = req?.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
     // `req.url` is normally fully-qualified, but during a server-fn-driven
@@ -64,7 +70,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     throw redirect({ to: '/auth/login' });
   },
   loader: async () => {
-    const req = getRequest();
+    // Server-only — see beforeLoad rationale.  Return a shape-compatible
+    // default so the layout keeps rendering on the client.
+    let req: Request | undefined;
+    try { req = getRequest(); } catch { return { user: null, appName: 'Focus' }; }
     const cookie = req?.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
     const env = getEnv();
