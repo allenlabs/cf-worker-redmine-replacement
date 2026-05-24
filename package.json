@@ -5,7 +5,8 @@
   "description": "Monorepo of Cloudflare Workers apps — each app may ship multiple workers (Queue / Workflow / cron / SSR / …).",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "tests/e2e"
   ],
   "scripts": {
     "install:all": "npm install",
@@ -21,6 +22,8 @@
     "test:today": "npm run -w @cf-worker-apps/today test",
     "test:context": "npm run -w @cf-worker-apps/context test",
     "test:cli": "npm run -w @allenlabs/cli test",
+    "test:e2e": "npm run -w @cf-worker-apps/e2e test",
+    "e2e:cleanup": "npm run -w @cf-worker-apps/e2e cleanup",
     "dev:pm": "npm run -w @cf-worker-apps/project-management dev",
     "dev:url": "npm run -w @cf-worker-apps/url-shortener dev",
     "dev:relay:ingest": "npm run -w @cf-worker-apps/webhook-relay dev:ingest",
