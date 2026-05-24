@@ -42,13 +42,15 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     // refresh.  Routes that need the actual users row (e.g. /my/page)
     // resolve it in their own data SQL.  Saves a Hetzner round-trip
     // (~400 ms) on every page.
-    const req = getRequest();
-    // Skip the gate on client-side router navigations — `getRequest()` is
-    // server-only, so a missing `req` means we're running on the client.
-    // The initial SSR already gated; client-side nav after that doesn't
-    // need to re-verify (the JWT cookie is unreadable from JS anyway).
-    // Throwing `redirect({ to: '/auth/login' })` here used to silently
-    // break every in-app Link click.
+    // `getRequest()` reads from h3's AsyncLocalStorage and THROWS on the
+    // client ("No StartEvent found in AsyncLocalStorage"). Catch it and
+    // bail out — the initial SSR already gated this isolate; client-side
+    // nav after that doesn't need to re-verify (the JWT cookie is
+    // httpOnly anyway). Letting the throw escape used to silently break
+    // every in-app Link click: URL changed via pushState but the new
+    // route never rendered because beforeLoad rejected.
+    let req: Request | undefined;
+    try { req = getRequest(); } catch { return; }
     if (!req) return;
     const cookie = req?.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
@@ -89,7 +91,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     // (~400 ms cold).  Routes that actually need the local users row
     // (`/my/page`, `/admin/users`, etc.) resolve it inline in their
     // own data SQL.
-    const req = getRequest();
+    // `getRequest()` and `getEnv()` are server-only — both THROW on the
+    // client. On client-side nav the SSR has already filled the layout
+    // context, so return null/undefined and let the existing values stay
+    // in place. (TanStack Router uses the last-known loader result for
+    // routes that don't re-resolve.)
+    let req: Request | undefined;
+    try { req = getRequest(); } catch { return { user: null, appName: 'Project Management' }; }
     const cookie = req?.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
     const env = getEnv();
