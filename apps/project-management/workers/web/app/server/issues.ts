@@ -20,6 +20,7 @@ import { logActivityImpl } from './activities';
 import { type CurrentUser } from './auth';
 import { buildAuthContext, getDb, getCurrentUser, getEnv, requirePermission, requireUser } from './auth-runtime.server';
 import * as notionGateway from './notion-gateway-client';
+import { getRefData } from './ref-data';
 
 const ISSUE_FIELDS = {
   trackerId: 'tracker',
@@ -138,11 +139,15 @@ export async function getIssueImpl(db: DB, id: number) {
   const issue = await db.query.issues.findFirst({ where: eq(issues.id, id) });
   if (!issue) throw new Error('Issue not found');
 
+  // tracker / status / priority resolve from the module-level cache —
+  // they're global ref-data and won't change across the request's life.
+  const refData = await getRefData(db);
+  const tracker = refData.trackers.find((t) => t.id === issue.trackerId);
+  const status = refData.statuses.find((s) => s.id === issue.statusId);
+  const priority = refData.priorities.find((p) => p.id === issue.priorityId);
+
   const [
     project,
-    tracker,
-    status,
-    priority,
     author,
     assignee,
     category,
@@ -153,9 +158,6 @@ export async function getIssueImpl(db: DB, id: number) {
     watcherRows,
   ] = await Promise.all([
     db.query.projects.findFirst({ where: eq(projects.id, issue.projectId) }),
-    db.query.trackers.findFirst({ where: eq(trackers.id, issue.trackerId) }),
-    db.query.issueStatuses.findFirst({ where: eq(issueStatuses.id, issue.statusId) }),
-    db.query.issuePriorities.findFirst({ where: eq(issuePriorities.id, issue.priorityId) }),
     db.query.users.findFirst({ where: eq(users.id, issue.authorId) }),
     issue.assignedToId
       ? db.query.users.findFirst({ where: eq(users.id, issue.assignedToId) })
@@ -244,12 +246,11 @@ export async function createIssueImpl(
   user: CurrentUser,
   data: CreateIssueInput,
 ): Promise<typeof issues.$inferSelect> {
+  const refData = await getRefData(db);
   const defaultStatus =
-    data.statusId ??
-    (await db.query.issueStatuses.findFirst({ where: eq(issueStatuses.isDefault, true) }))?.id;
+    data.statusId ?? refData.statuses.find((s) => s.isDefault)?.id;
   const defaultPriority =
-    data.priorityId ??
-    (await db.query.issuePriorities.findFirst({ where: eq(issuePriorities.isDefault, true) }))?.id;
+    data.priorityId ?? refData.priorities.find((p) => p.isDefault)?.id;
 
   if (!defaultStatus || !defaultPriority) {
     throw new Error('Default status or priority is missing — run db seed.');
@@ -326,9 +327,10 @@ export async function updateIssueImpl(
   }> = [];
 
   if (Object.keys(patch).length > 0) {
-    const closedStatus = await db.query.issueStatuses.findFirst({
-      where: and(eq(issueStatuses.isClosed, true), eq(issueStatuses.isDefault, false)),
-    });
+    const refData = await getRefData(db);
+    const closedStatus = refData.statuses.find(
+      (s) => s.isClosed && !s.isDefault,
+    );
     const willClose =
       patch.statusId !== undefined && Number(patch.statusId) === closedStatus?.id;
     const result = await db

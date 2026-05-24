@@ -16,13 +16,11 @@
 import { and, eq } from 'drizzle-orm';
 import {
   issueCategories,
-  issuePriorities,
-  issueStatuses,
   issues,
-  trackers,
   users,
   versions,
 } from '~/db/schema';
+import { getRefData } from './ref-data';
 import type { DB } from '~/db/client';
 import type { Env } from '~/lib/env';
 import type {
@@ -214,10 +212,11 @@ export interface IssueFields {
 export async function loadIssueFields(db: DB, issueId: number): Promise<IssueFields | null> {
   const issue = await db.query.issues.findFirst({ where: eq(issues.id, issueId) });
   if (!issue) return null;
-  const [status, tracker, priority, assignee, category, version] = await Promise.all([
-    db.query.issueStatuses.findFirst({ where: eq(issueStatuses.id, issue.statusId) }),
-    db.query.trackers.findFirst({ where: eq(trackers.id, issue.trackerId) }),
-    db.query.issuePriorities.findFirst({ where: eq(issuePriorities.id, issue.priorityId) }),
+  const refData = await getRefData(db);
+  const status = refData.statuses.find((s) => s.id === issue.statusId);
+  const tracker = refData.trackers.find((t) => t.id === issue.trackerId);
+  const priority = refData.priorities.find((p) => p.id === issue.priorityId);
+  const [assignee, category, version] = await Promise.all([
     issue.assignedToId
       ? db.query.users.findFirst({ where: eq(users.id, issue.assignedToId) })
       : null,

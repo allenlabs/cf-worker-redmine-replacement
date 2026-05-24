@@ -24,6 +24,7 @@ import {
 import { logActivityImpl } from './activities';
 import { type CurrentUser } from './auth';
 import { buildAuthContext, getDb, getCurrentUser, requirePermission, requireUser } from './auth-runtime.server';
+import { getRefData } from './ref-data';
 
 const DEFAULT_MODULES = [
   'issue_tracking',
@@ -152,14 +153,14 @@ export async function createProjectImpl(
     .insert(enabledModules)
     .values(DEFAULT_MODULES.map((m) => ({ projectId: project.id, name: m })));
 
-  const allTrackers = await db.query.trackers.findMany();
-  if (allTrackers.length > 0) {
+  const refData = await getRefData(db);
+  if (refData.trackers.length > 0) {
     await db
       .insert(projectTrackers)
-      .values(allTrackers.map((t) => ({ projectId: project.id, trackerId: t.id })));
+      .values(refData.trackers.map((t) => ({ projectId: project.id, trackerId: t.id })));
   }
 
-  const manager = await db.query.roles.findFirst({ where: eq(roles.name, 'Manager') });
+  const manager = refData.roles.find((r) => r.name === 'Manager');
   if (manager) {
     await db
       .insert(members)

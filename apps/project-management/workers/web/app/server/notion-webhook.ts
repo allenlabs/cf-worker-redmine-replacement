@@ -97,12 +97,10 @@ export async function verifyWebhookImpl(
 
 import {
   issueCategories,
-  issuePriorities,
-  issueStatuses,
-  trackers,
   users,
   versions,
 } from '~/db/schema';
+import { getRefData } from './ref-data';
 
 async function resolveByName<T extends { id: number; name: string }>(
   rows: T[],
@@ -132,16 +130,16 @@ export async function translateFieldsImpl(
     changes.description = fields.description;
   }
   if ('status' in fields) {
-    const rows = await db.select().from(issueStatuses);
-    changes.statusId = await resolveByName(rows, fields.status);
+    const { statuses } = await getRefData(db);
+    changes.statusId = await resolveByName(statuses, fields.status);
   }
   if ('tracker' in fields) {
-    const rows = await db.select().from(trackers);
-    changes.trackerId = await resolveByName(rows, fields.tracker);
+    const { trackers: trk } = await getRefData(db);
+    changes.trackerId = await resolveByName(trk, fields.tracker);
   }
   if ('priority' in fields) {
-    const rows = await db.select().from(issuePriorities);
-    changes.priorityId = await resolveByName(rows, fields.priority);
+    const { priorities } = await getRefData(db);
+    changes.priorityId = await resolveByName(priorities, fields.priority);
   }
   if ('assignedTo' in fields) {
     const v = fields.assignedTo;

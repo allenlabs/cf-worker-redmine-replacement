@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { type DB } from '~/db/client';
 import { members, projects, roles, users } from '~/db/schema';
 import { getDb, requirePermission, requireUser } from './auth-runtime.server';
+import { getRefData } from './ref-data';
 
 export async function listMembersImpl(db: DB, projectId: number) {
   return db
@@ -41,7 +42,8 @@ export async function listAllUsersImpl(db: DB) {
 }
 
 export async function listRolesImpl(db: DB) {
-  return db.query.roles.findMany({ orderBy: roles.position });
+  // Roles are global ref-data — pulled from the module-level cache.
+  return (await getRefData(db)).roles;
 }
 
 export async function addMemberImpl(

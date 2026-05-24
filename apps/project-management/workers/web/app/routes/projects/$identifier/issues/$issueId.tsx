@@ -10,6 +10,7 @@ import { getCurrentUser, getDb } from '~/server/auth-runtime.server';
 import { getIssueImpl, updateIssue, watchIssue } from '~/server/issues';
 import { listMembersImpl } from '~/server/members';
 import { renderMarkdown } from '~/server/markdown';
+import { getRefData } from '~/server/ref-data';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
@@ -21,18 +22,25 @@ const loadIssue = createServerFn({ method: 'GET' })
     const me = await getCurrentUser();
     const result = await getIssueImpl(db, data.id);
     const members = await listMembersImpl(db, result.issue.projectId);
+    const refData = await getRefData(db);
     return {
       issue: { ...result, isWatching: me ? result.watchers.includes(me.id) : false },
       members,
+      statuses: refData.statuses.map((s) => ({ id: s.id, name: s.name })),
+      priorities: refData.priorities.map((p) => ({ id: p.id, name: p.name })),
     };
   });
 
 export const Route = createFileRoute('/projects/$identifier/issues/$issueId')({
   loader: async ({ params }) => {
-    const { issue, members } = await loadIssue({ data: { id: Number(params.issueId) } });
+    const { issue, members, statuses, priorities } = await loadIssue({
+      data: { id: Number(params.issueId) },
+    });
     return {
       issue,
       members,
+      statuses,
+      priorities,
       descriptionHtml: renderMarkdown(issue.issue.description),
     };
   },
@@ -186,26 +194,13 @@ function IssuePage() {
               label="Status"
               value={(changes.statusId as number) ?? i.statusId}
               onChange={(v) => updateField('statusId', v)}
-              options={[
-                { id: 1, name: 'New' },
-                { id: 2, name: 'In Progress' },
-                { id: 3, name: 'Resolved' },
-                { id: 4, name: 'Feedback' },
-                { id: 5, name: 'Closed' },
-                { id: 6, name: 'Rejected' },
-              ]}
+              options={data.statuses}
             />
             <Select
               label="Priority"
               value={(changes.priorityId as number) ?? i.priorityId}
               onChange={(v) => updateField('priorityId', v)}
-              options={[
-                { id: 1, name: 'Low' },
-                { id: 2, name: 'Normal' },
-                { id: 3, name: 'High' },
-                { id: 4, name: 'Urgent' },
-                { id: 5, name: 'Immediate' },
-              ]}
+              options={data.priorities}
             />
             <Select
               label="Assignee"
