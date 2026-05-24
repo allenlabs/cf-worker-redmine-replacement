@@ -4,7 +4,8 @@
   "private": true,
   "description": "Monorepo of Cloudflare Workers apps — each app may ship multiple workers (Queue / Workflow / cron / SSR / …).",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "install:all": "npm install",
@@ -16,6 +17,7 @@
     "test:relay": "npm run -w @cf-worker-apps/webhook-relay test",
     "test:notion": "npm run -w @cf-worker-apps/notion-gateway test",
     "test:inbox": "npm run -w @cf-worker-apps/inbox test",
+    "test:cli": "npm run -w @allenlabs/cli test",
     "dev:pm": "npm run -w @cf-worker-apps/project-management dev",
     "dev:url": "npm run -w @cf-worker-apps/url-shortener dev",
     "dev:relay:ingest": "npm run -w @cf-worker-apps/webhook-relay dev:ingest",
