@@ -10,6 +10,7 @@ export type TestDB = DB;
 
 const ROOT = join(__dirname, '..', '..');
 const MIGRATION = readFileSync(join(ROOT, 'drizzle-pg', '0001_initial.sql'), 'utf8');
+const MIGRATION_PUSH = readFileSync(join(ROOT, 'drizzle-pg', '0002_push.sql'), 'utf8');
 
 // Inbox stores user_id as a soft FK to pm.users.id.  In tests we don't run
 // PM's migrations — we just create a minimal pm.users shim so impls that
@@ -30,6 +31,7 @@ export async function makeTestDb(): Promise<TestDB> {
   const pglite = new PGlite();
   await pglite.exec(PM_SHIM);
   await pglite.exec(MIGRATION);
+  await pglite.exec(MIGRATION_PUSH);
   await pglite.exec(`SET search_path = inbox, public;`);
   return drizzle(pglite, { schema }) as unknown as TestDB;
 }

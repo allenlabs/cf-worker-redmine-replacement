@@ -40,6 +40,9 @@ export function makeTestEnv(overrides: Partial<Env> = {}): Env {
     OTEL_ACCESS_ID: 'test-otel-id',
     OTEL_ACCESS_SECRET: 'test-otel-secret',
     OTEL_BEARER_TOKEN: 'test-otel-bearer',
+    VAPID_PUBLIC_KEY: 'test-vapid-public',
+    VAPID_PRIVATE_KEY: 'test-vapid-private',
+    VAPID_SUBJECT: 'mailto:test@example.test',
     ...overrides,
   };
 }

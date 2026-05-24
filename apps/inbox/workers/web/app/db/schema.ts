@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigserial,
+  boolean,
   index,
   integer,
   jsonb,
@@ -71,8 +72,52 @@ export const apiClients = inbox.table(
   }),
 );
 
+// ---------- Push subscriptions ----------
+//
+// One row per (user, browser/device) endpoint.  The browser's PushManager
+// returns a unique `endpoint` URL we use as the natural key for upsert.
+// `failed_count` is incremented on delivery failure; ≥5 + a 410-gone
+// response triggers row deletion in `sendCaptureNotificationImpl`.
+export const pushSubscriptions = inbox.table(
+  'push_subscriptions',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    userId: integer('user_id').notNull(),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .default(sql`now()`),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
+    failedCount: integer('failed_count').notNull().default(0),
+  },
+  (t) => ({
+    userIdx: index('push_subscriptions_user_idx').on(t.userId),
+  }),
+);
+
+// ---------- Push preferences ----------
+//
+// One row per user; rows are created lazily on first preference write.
+// `quiet_start`/`quiet_end` are minutes from local midnight (0..1439).  A
+// missing row means "default everything on" (on_capture = true, no quiet
+// hours).
+export const pushPreferences = inbox.table('push_preferences', {
+  userId: integer('user_id').primaryKey(),
+  onCapture: boolean('on_capture').notNull().default(true),
+  quietStart: integer('quiet_start'),
+  quietEnd: integer('quiet_end'),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .default(sql`now()`),
+});
+
 // Reference back to pm.users from auth.  We don't model it in Drizzle (no
 // cross-schema FK), but PM's users table is the source of truth for `userId`.
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
 export type ApiClient = typeof apiClients.$inferSelect;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type PushPreferences = typeof pushPreferences.$inferSelect;

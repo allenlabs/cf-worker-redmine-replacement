@@ -28,4 +28,13 @@ export interface Env {
   OTEL_ACCESS_ID: string;
   OTEL_ACCESS_SECRET: string;
   OTEL_BEARER_TOKEN: string;
+
+  // Web Push (VAPID).  `VAPID_PUBLIC_KEY` is the application server key
+  // browsers use to scope subscriptions — safe to embed in the client
+  // bundle / HTML.  `VAPID_PRIVATE_KEY` is the signing key for outbound
+  // pushes; never leaves the worker.  `VAPID_SUBJECT` is the RFC 8292
+  // contact URI, e.g. `mailto:ops@allenlabs.org`.
+  VAPID_PUBLIC_KEY: string;
+  VAPID_PRIVATE_KEY: string;
+  VAPID_SUBJECT: string;
 }
