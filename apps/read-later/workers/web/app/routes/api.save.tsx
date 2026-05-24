@@ -9,7 +9,7 @@ import { readSessionToken, verifySessionToken } from '~/server/session.server';
  *
  * Cookie-authenticated save endpoint used by the in-browser UI / bookmarklet.
  * HMAC traffic (CLI, third-party automation) goes to
- * read-later-api.allen.company instead; the impl is shared.
+ * read-later-api.allenlabs.org instead; the impl is shared.
  */
 export const Route = createFileRoute('/api/save')({
   server: {

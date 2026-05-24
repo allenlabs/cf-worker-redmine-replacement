@@ -171,7 +171,7 @@ export async function extractFromUrl(
     res = await deps.fetch(url, {
       headers: {
         'user-agent':
-          'Mozilla/5.0 (compatible; AllenLabsReadLater/0.1; +https://read-later.allen.company)',
+          'Mozilla/5.0 (compatible; AllenLabsReadLater/0.1; +https://read-later.allenlabs.org)',
         accept: 'text/html,application/xhtml+xml',
       },
       redirect: 'follow',
