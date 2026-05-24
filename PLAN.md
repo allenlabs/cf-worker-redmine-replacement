@@ -76,11 +76,18 @@ day with the existing infra (auth, Hyperdrive, TanStack Start patterns).
    - API: POST `/v1/save`, GET `/v1/next?freeMinutes=`, POST `/v1/done`,
      POST `/v1/skip`, POST `/v1/delete`. All HMAC-signed via
      `read_later.api_clients`.
-6. **`stash`** — Tab graveyard.
-   - Browser ext one-clicks "stash this window" → POSTs `{ tabs[] }` to
-     `stash.allen.company`.
-   - List view at `stash.allen.company`: search, restore individual tabs or
-     whole windows, auto-bury after 30 days.
+6. **`stash`** — Snippet / note vault. **[DONE 2026-05-24]**
+   - Live at https://stash.allen.company (web) +
+     https://stash-api.allen.company (HMAC API).
+   - Storage: `stash.snippets(id, user_id, title, body, language, tags[],
+     source, created_at, updated_at, search_tsv GENERATED ALWAYS AS ...
+     STORED)` + `stash.api_clients`.  GIN index over `search_tsv` for
+     full-text + GIN over `tags[]` for tag filtering.
+   - Frictionless save: paste code, command, mental note; recall by tag or
+     `plainto_tsquery`-driven full-text search with `ts_rank` ordering and
+     `ts_headline` highlights.
+   - API: POST `/v1/save`, GET `/v1/search?q=&limit=`, GET `/v1/get?id=`,
+     POST `/v1/delete`.  All HMAC-signed via `stash.api_clients`.
 
 ### Phase C — Habit / journal layer (each ~ 0.5 day)
 
