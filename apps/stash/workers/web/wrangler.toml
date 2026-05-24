@@ -10,10 +10,10 @@ workers_dev = true
 
 assets = { directory = "../../dist/client", binding = "ASSETS" }
 
-# Custom domain — DNS + SSL handled by Cloudflare since allen.company is on
+# Custom domain — DNS + SSL handled by Cloudflare since allenlabs.org is on
 # the same account.
 [[routes]]
-pattern = "stash.allen.company"
+pattern = "stash.allenlabs.org"
 custom_domain = true
 
 # Hyperdrive → Hetzner Postgres (`allenlabs` DB, `stash` schema).
@@ -33,4 +33,4 @@ APP_NAME = "Stash"
 DEFAULT_LANGUAGE = "en"
 AUTH_WEB_URL = "https://auth.allen.company"
 AUTH_API_URL = "https://auth-api.allen.company"
-PUBLIC_BASE_URL = "https://stash.allen.company"
+PUBLIC_BASE_URL = "https://stash.allenlabs.org"

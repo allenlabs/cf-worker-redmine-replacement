@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [[routes]]
-pattern = "stash-api.allen.company"
+pattern = "stash-api.allenlabs.org"
 custom_domain = true
 
 # Hyperdrive → Hetzner Postgres (`allenlabs` DB, `stash` schema).
@@ -16,7 +16,7 @@ id = "0b76cf08a44443d39d12f0d51ed059f5"
 
 [vars]
 APP_NAME = "Stash API"
-PUBLIC_BASE_URL = "https://stash-api.allen.company"
+PUBLIC_BASE_URL = "https://stash-api.allenlabs.org"
 
 # Secrets — set with `wrangler secret put …`:
 #   OTEL_BEARER_TOKEN

@@ -18,7 +18,7 @@ interface RouterContext {
 }
 
 // Public paths a signed-out browser must still hit cleanly.  HMAC traffic
-// (CLI, third-party automation) goes to stash-api.allen.company instead.
+// (CLI, third-party automation) goes to stash-api.allenlabs.org instead.
 const PUBLIC_PATHS = new Set([
   '/auth/login',
   '/auth/callback',
