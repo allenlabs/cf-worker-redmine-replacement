@@ -118,11 +118,22 @@ day with the existing infra (auth, Hyperdrive, TanStack Start patterns).
 
 ### Phase D — Deep integrations (each ~ 1 day)
 
-9. **`solved`** — Searchable personal KB.
-   - Auto-capture sources: PR merge events (webhook), Linear/PM issue
-     resolution events, terminal post-mortems (CLI hook on `git commit
-     --amend` after a fix), Notion pages tagged "fix:".
-   - Full-text search via PG `tsvector`; semantic via Workers AI Vectorize.
+9. **`solved`** — Searchable personal KB. **[DONE 2026-05-24]**
+   - Live at https://solved.allenlabs.org (web) +
+     https://solved-api.allenlabs.org (HMAC API).
+   - Storage: `solved.entries(id, user_id, title, body, tags[], source,
+     source_ref, source_url, created_at, updated_at, search_tsv GENERATED
+     ALWAYS AS ... STORED)` + `solved.api_clients`.  GIN over `search_tsv`
+     for FTS + GIN over `tags[]` for tag filtering.
+   - Auto-capture surfaces (future): PR merge events (webhook), Linear/PM
+     issue resolution events, terminal post-mortems (CLI hook on `git commit
+     --amend` after a fix), Notion pages tagged "fix:".  V1 ships with
+     web/API entry only — adapters land as a follow-up.
+   - API: POST `/v1/save` {title, body, tags?, source?, source_ref?,
+     source_url?}, GET `/v1/search?q=&limit=`, GET `/v1/get?id=`,
+     POST `/v1/delete`.  All HMAC-signed via `solved.api_clients`.
+   - Semantic search via Workers AI Vectorize: future enhancement,
+     FTS-only for v1.
 10. **`buffer`** — Calendar buffer enforcer.
     - Google Calendar OAuth.
     - Cron worker: scans next 14 days, inserts 30-min "buffer" blocks
