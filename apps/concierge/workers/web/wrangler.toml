@@ -11,7 +11,7 @@ workers_dev = true
 assets = { directory = "../../dist/client", binding = "ASSETS" }
 
 [[routes]]
-pattern = "concierge.allen.company"
+pattern = "concierge.allenlabs.org"
 custom_domain = true
 
 # Hyperdrive → Hetzner Postgres (`allenlabs` DB, `concierge` schema).
@@ -31,8 +31,8 @@ APP_NAME = "Concierge"
 DEFAULT_LANGUAGE = "en"
 AUTH_WEB_URL = "https://auth.allen.company"
 AUTH_API_URL = "https://auth-api.allen.company"
-PUBLIC_BASE_URL = "https://concierge.allen.company"
-INBOX_API_URL = "https://inbox-api.allen.company"
+PUBLIC_BASE_URL = "https://concierge.allenlabs.org"
+INBOX_API_URL = "https://inbox-api.allenlabs.org"
 
 # Secrets — set with `wrangler secret put …`:
 #   OTEL_BEARER_TOKEN

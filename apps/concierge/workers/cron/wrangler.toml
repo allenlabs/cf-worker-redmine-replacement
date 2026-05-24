@@ -18,7 +18,7 @@ id = "0b76cf08a44443d39d12f0d51ed059f5"
 
 [vars]
 APP_NAME = "Concierge Cron"
-INBOX_API_URL = "https://inbox-api.allen.company"
+INBOX_API_URL = "https://inbox-api.allenlabs.org"
 # Hard ceiling on users processed per invocation so a stuck job can't
 # hammer the LLM or PG.  Tune as needed.
 CRON_MAX_USERS = "100"

@@ -37,7 +37,7 @@ export interface ProcessNudgeResult {
 
 export interface ProcessNudgeEnv extends LlmEnv, DeliverPushEnv {
   /** Optional override for the URL embedded in the push payload — defaults
-   *  to https://today.allen.company/ which is where the user reads nudges. */
+   *  to https://today.allenlabs.org/ which is where the user reads nudges. */
   PUBLIC_NUDGE_URL?: string;
 }
 
@@ -95,7 +95,7 @@ export async function processNudgeForUserImpl(
 
   let pushed = false;
   if (channels.includes('push')) {
-    const url = env.PUBLIC_NUDGE_URL ?? 'https://today.allen.company/';
+    const url = env.PUBLIC_NUDGE_URL ?? 'https://today.allenlabs.org/';
     const result = await deliverPushImpl(
       env,
       {

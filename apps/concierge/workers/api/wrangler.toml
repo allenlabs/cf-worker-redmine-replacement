@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [[routes]]
-pattern = "concierge-api.allen.company"
+pattern = "concierge-api.allenlabs.org"
 custom_domain = true
 
 # Hyperdrive → Hetzner Postgres (`allenlabs` DB, `concierge` schema).
@@ -16,11 +16,11 @@ id = "0b76cf08a44443d39d12f0d51ed059f5"
 
 [vars]
 APP_NAME = "Concierge API"
-PUBLIC_BASE_URL = "https://concierge-api.allen.company"
+PUBLIC_BASE_URL = "https://concierge-api.allenlabs.org"
 # Where to forward push deliveries.  The inbox API worker owns the user's
 # push_subscriptions table and the VAPID transport; concierge POSTs a tiny
 # notification payload here and inbox fans it out.
-INBOX_API_URL = "https://inbox-api.allen.company"
+INBOX_API_URL = "https://inbox-api.allenlabs.org"
 
 # Secrets — set with `wrangler secret put …`:
 #   OTEL_BEARER_TOKEN
