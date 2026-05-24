@@ -4,10 +4,16 @@
  * after a manual session went sideways.
  *
  * Tag conventions (mirrors tests/e2e/lib/fixtures.ts):
- *   - inbox.items.tags        contains 'e2e-test'
+ *   - inbox.items.tags         contains 'e2e-test'
  *   - focus.sessions.task_text starts with '[e2e]'
- *   - context.snapshots.name  starts with 'e2e-'
- *   - pm.projects.identifier  starts with 'e2e-' (if we ever scaffold one)
+ *   - context.snapshots.name   starts with 'e2e-'
+ *   - concierge.nudges.question OR context_summary starts with '[e2e]'
+ *   - concierge.preferences    snapshotted+restored by the spec itself
+ *                              (cleanup also drops any row whose updated_at
+ *                              moved during a test if a snapshot row exists
+ *                              tagged in concierge.nudges — see spec for the
+ *                              restoration pattern)
+ *   - pm.projects.identifier   starts with 'e2e-' (if we ever scaffold one)
  *
  * Order matters because of FK cascade:
  *   focus.distractions → focus.sessions
@@ -136,6 +142,23 @@ export async function cleanup(opts: CleanupOptions = {}): Promise<DeleteResult[]
         table: 'context.snapshots',
         sql: `DELETE FROM context.snapshots WHERE name LIKE 'e2e-%'`,
       },
+      // Concierge nudges — tagged in-band via the `[e2e]` prefix on either
+      // the question OR the LLM-context summary (whichever the test seeded).
+      {
+        table: 'concierge.nudges',
+        sql: `DELETE FROM concierge.nudges
+              WHERE question LIKE '[e2e]%'
+                 OR context_summary LIKE '[e2e]%'`,
+      },
+      // Concierge preferences are user-scoped (one row per user) and a test
+      // may toggle `enabled` on user_id=1 to verify the flow.  The
+      // concierge.spec snapshots the row BEFORE the test and restores it
+      // AFTER, so this cleanup is a fallback: if the spec crashed before
+      // restoring, we delete only those preference rows that were created by
+      // a test (i.e. have NO nudges of their own and were freshly inserted
+      // — heuristic: cleanup runs whether a snapshot exists or not, and the
+      // spec writes its own restoration; we leave preferences alone here to
+      // avoid clobbering real user state).  Intentionally no DELETE.
       // PM may not exist on every install; we attempt and swallow "schema
       // does not exist" / "relation does not exist" errors.
       {

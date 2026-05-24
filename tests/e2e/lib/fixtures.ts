@@ -20,6 +20,14 @@ export const CONTEXT_E2E_PREFIX = 'e2e-';
 export const PM_E2E_PREFIX = 'e2e-';
 
 /**
+ * Prefix stuffed into `concierge.nudges.question` (and `context_summary`) for
+ * every e2e-created nudge.  Concierge nudges don't have a tags column, so we
+ * tag inside the LLM-composed question text itself.  cleanup.ts deletes by
+ * exact prefix-match on the question column.
+ */
+export const CONCIERGE_E2E_PREFIX = '[e2e]';
+
+/**
  * Build an inbox capture text with the e2e tag baked into the visible body —
  * makes failures easier to read in the deployed UI and is harmless because
  * the row is also tagged on `tags[]`.
@@ -42,7 +50,7 @@ export function contextName(label: string): string {
 
 /** Apps we sign into.  Each entry maps to a per-app session cookie + base URL. */
 export interface AppConfig {
-  readonly name: 'inbox' | 'focus' | 'today' | 'context';
+  readonly name: 'inbox' | 'focus' | 'today' | 'context' | 'concierge';
   readonly baseUrl: string;
   readonly cookieName: string;
 }
@@ -67,6 +75,11 @@ export const APPS: Readonly<Record<AppConfig['name'], AppConfig>> = {
     name: 'context',
     baseUrl: 'https://context.allen.company',
     cookieName: 'context_session',
+  },
+  concierge: {
+    name: 'concierge',
+    baseUrl: 'https://concierge.allen.company',
+    cookieName: 'concierge_session',
   },
 };
 
