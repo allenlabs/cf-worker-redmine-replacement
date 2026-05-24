@@ -1,0 +1,36 @@
+name = "read-later-web"
+# `npm run build` (TanStack Start vite plugin) emits the complete worker
+# at dist/server/server.js with all server-fn handlers registered.  We
+# bypass @cloudflare/vite-plugin entirely (same rationale as PM / inbox /
+# focus / context).
+main = "../../dist/server/server.js"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+assets = { directory = "../../dist/client", binding = "ASSETS" }
+
+# Custom domain — DNS + SSL handled by Cloudflare since allen.company is on
+# the same account.
+[[routes]]
+pattern = "read-later.allen.company"
+custom_domain = true
+
+# Hyperdrive → Hetzner Postgres (`allenlabs` DB, `read_later` schema).
+# Reuses the shared Hyperdrive binding id used by every allenlabs app.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "0b76cf08a44443d39d12f0d51ed059f5"
+
+# KV namespace for session revocation.  Reuse PM's namespace — keys are
+# prefixed by hash so cross-app collisions are astronomically unlikely.
+[[kv_namespaces]]
+binding = "SESSION_KV"
+id = "96408ec81e754c36b4ae3643cf2afd80"
+
+[vars]
+APP_NAME = "Read Later"
+DEFAULT_LANGUAGE = "en"
+AUTH_WEB_URL = "https://auth.allen.company"
+AUTH_API_URL = "https://auth-api.allen.company"
+PUBLIC_BASE_URL = "https://read-later.allen.company"
