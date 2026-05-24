@@ -19,6 +19,7 @@
     "test:inbox": "npm run -w @cf-worker-apps/inbox test",
     "test:focus": "npm run -w @cf-worker-apps/focus test",
     "test:today": "npm run -w @cf-worker-apps/today test",
+    "test:context": "npm run -w @cf-worker-apps/context test",
     "test:cli": "npm run -w @allenlabs/cli test",
     "dev:pm": "npm run -w @cf-worker-apps/project-management dev",
     "dev:url": "npm run -w @cf-worker-apps/url-shortener dev",
@@ -30,7 +31,9 @@
     "dev:inbox:api": "npm run -w @cf-worker-apps/inbox dev:api",
     "dev:focus": "npm run -w @cf-worker-apps/focus dev",
     "dev:focus:api": "npm run -w @cf-worker-apps/focus dev:api",
-    "dev:today": "npm run -w @cf-worker-apps/today dev"
+    "dev:today": "npm run -w @cf-worker-apps/today dev",
+    "dev:context": "npm run -w @cf-worker-apps/context dev",
+    "dev:context:api": "npm run -w @cf-worker-apps/context dev:api"
   },
   "engines": {
     "node": ">=20"

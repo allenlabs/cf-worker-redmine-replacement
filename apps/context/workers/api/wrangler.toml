@@ -1,0 +1,27 @@
+name = "context-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[[routes]]
+pattern = "context-api.allen.company"
+custom_domain = true
+
+# Hyperdrive → Hetzner Postgres (`allenlabs` DB, `context` schema).
+# Reuses the same Hyperdrive binding as context-web + focus + inbox + pm-web.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "0b76cf08a44443d39d12f0d51ed059f5"
+
+[vars]
+APP_NAME = "Context API"
+PUBLIC_BASE_URL = "https://context-api.allen.company"
+
+# Secrets — set with `wrangler secret put …`:
+#   OTEL_BEARER_TOKEN
+#   OTEL_ACCESS_ID
+#   OTEL_ACCESS_SECRET
+#
+# The HMAC secrets themselves live in context.api_clients (one per client_id),
+# not as wrangler secrets — they're per-client and rotated via UPDATE.
