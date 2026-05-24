@@ -160,7 +160,7 @@ async function tagNudgeForCleanup(pg: Client, nudgeId: number): Promise<void> {
   );
 }
 
-test.describe('concierge.allen.company', () => {
+test.describe('concierge.allenlabs.org', () => {
   let pg: Client;
   let userId: number;
   let snapshot: PreferencesSnapshot;

@@ -58,27 +58,27 @@ export interface AppConfig {
 export const APPS: Readonly<Record<AppConfig['name'], AppConfig>> = {
   inbox: {
     name: 'inbox',
-    baseUrl: 'https://inbox.allen.company',
+    baseUrl: 'https://inbox.allenlabs.org',
     cookieName: 'inbox_session',
   },
   focus: {
     name: 'focus',
-    baseUrl: 'https://focus.allen.company',
+    baseUrl: 'https://focus.allenlabs.org',
     cookieName: 'focus_session',
   },
   today: {
     name: 'today',
-    baseUrl: 'https://today.allen.company',
+    baseUrl: 'https://today.allenlabs.org',
     cookieName: 'today_session',
   },
   context: {
     name: 'context',
-    baseUrl: 'https://context.allen.company',
+    baseUrl: 'https://context.allenlabs.org',
     cookieName: 'context_session',
   },
   concierge: {
     name: 'concierge',
-    baseUrl: 'https://concierge.allen.company',
+    baseUrl: 'https://concierge.allenlabs.org',
     cookieName: 'concierge_session',
   },
 };

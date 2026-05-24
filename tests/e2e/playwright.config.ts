@@ -3,7 +3,7 @@ import path from 'node:path';
 
 /**
  * Playwright config for end-to-end tests against deployed
- * *.allen.company workers.
+ * *.allenlabs.org workers.
  *
  * Design notes:
  *   - Single worker.  The tests share one admin account and write rows that
@@ -28,7 +28,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   use: {
-    baseURL: 'https://inbox.allen.company',
+    baseURL: 'https://inbox.allenlabs.org',
     storageState: path.resolve(__dirname, '.auth', 'state.json'),
     actionTimeout: 15_000,
     navigationTimeout: 30_000,

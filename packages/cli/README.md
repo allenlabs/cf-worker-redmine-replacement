@@ -67,7 +67,7 @@ otherwise you paste them.
 `al ctx save "fixing auth bug"` shells out to `git`, `tmux`, `ls`, and
 `ps` to capture *where you were* — cwd, branch, porcelain status, MRU
 files, tmux window list, top-CPU processes — and POSTs the lot to
-`context-api.allen.company`. Every source is best-effort: no git repo,
+`context-api.allenlabs.org`. Every source is best-effort: no git repo,
 no `$TMUX`, missing binary → that source is skipped, the rest still
 ship.
 

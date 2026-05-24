@@ -1,5 +1,5 @@
 /**
- * Inbox: capture → list → drop flow against deployed inbox.allen.company.
+ * Inbox: capture → list → drop flow against deployed inbox.allenlabs.org.
  *
  * Touches inbox.items only; teardown deletes everything tagged 'e2e-test'.
  */
@@ -7,7 +7,7 @@
 import { expect, test } from '@playwright/test';
 import { APPS, INBOX_E2E_TAG, inboxText } from './lib/fixtures';
 
-test.describe('inbox.allen.company', () => {
+test.describe('inbox.allenlabs.org', () => {
   test('capture, list, drop', async ({ page, request }) => {
     const text = inboxText(`capture ${Date.now()}`);
 

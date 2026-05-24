@@ -9,7 +9,7 @@
 import { expect, test } from '@playwright/test';
 import { APPS, contextName } from './lib/fixtures';
 
-test.describe('context.allen.company', () => {
+test.describe('context.allenlabs.org', () => {
   test('save, list, view', async ({ page, request }) => {
     const name = contextName(`save list view ${Date.now()}`);
 

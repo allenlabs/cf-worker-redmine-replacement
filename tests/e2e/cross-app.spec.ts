@@ -1,6 +1,6 @@
 /**
  * Cross-app: capture an inbox item, then verify it's visible in the
- * `today.allen.company` inbox panel.  This is the canonical "do I still
+ * `today.allenlabs.org` inbox panel.  This is the canonical "do I still
  * have the same identity across subdomains?" check.
  */
 

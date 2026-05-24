@@ -2,7 +2,7 @@
  * Playwright-native port of /tmp/extract_cookie.mjs.
  *
  * The deployed Allen Labs SSO flow is:
- *   1. App page (e.g. https://inbox.allen.company/) checks for `<app>_session`
+ *   1. App page (e.g. https://inbox.allenlabs.org/) checks for `<app>_session`
  *      cookie.  No cookie → 307 to /auth/login.
  *   2. /auth/login is a tiny SSR page whose <form action="/sign-in"
  *      method="post"> posts to https://auth.allen.company/sign-in with

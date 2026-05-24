@@ -100,7 +100,7 @@ describe('normalizeConfig', () => {
   });
   it('round-trips the context app section', () => {
     const ok = {
-      context: { url: 'https://context-api.allen.company', client_id: 'cli', secret: 'top-secret' },
+      context: { url: 'https://context-api.allenlabs.org', client_id: 'cli', secret: 'top-secret' },
     };
     expect(normalizeConfig(ok)).toEqual(ok);
   });
@@ -118,9 +118,9 @@ describe('requireApp', () => {
 
 describe('DEFAULTS', () => {
   it('has the well-known endpoints', () => {
-    expect(DEFAULTS.inbox.url).toBe('https://inbox-api.allen.company');
-    expect(DEFAULTS.focus.url).toBe('https://focus-api.allen.company');
-    expect(DEFAULTS.context.url).toBe('https://context-api.allen.company');
+    expect(DEFAULTS.inbox.url).toBe('https://inbox-api.allenlabs.org');
+    expect(DEFAULTS.focus.url).toBe('https://focus-api.allenlabs.org');
+    expect(DEFAULTS.context.url).toBe('https://context-api.allenlabs.org');
     expect(DEFAULTS.inbox.client_id).toBe('cli');
   });
 });

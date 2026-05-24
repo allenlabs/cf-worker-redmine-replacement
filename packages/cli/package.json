@@ -1,6 +1,6 @@
 {
   "name": "@allenlabs/cli",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Zero-friction CLI for the Allen Labs ADHD-developer SaaS suite (inbox, focus, context, …).",
   "type": "module",
   "bin": {

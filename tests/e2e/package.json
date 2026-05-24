@@ -2,7 +2,7 @@
   "name": "@cf-worker-apps/e2e",
   "version": "0.1.0",
   "private": true,
-  "description": "Playwright end-to-end suite against deployed *.allen.company workers.",
+  "description": "Playwright end-to-end suite against deployed *.allenlabs.org workers.",
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",

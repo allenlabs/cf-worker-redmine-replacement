@@ -36,7 +36,7 @@ day with the existing infra (auth, Hyperdrive, TanStack Start patterns).
 1. **`inbox`** — Universal capture.  POST `/capture { text, source?, tags? }`.
    - Storage: `inbox.items(id, text, source, tags, captured_at, status,
      refiled_to)` in shared PG.
-   - Surfaces: `inbox.allen.company` (TanStack Start) for triage, mobile PWA,
+   - Surfaces: `inbox.allenlabs.org` (TanStack Start) for triage, mobile PWA,
      CLI tool, browser extension (Manifest V3), email-to-inbox via Mailchannels.
    - Triage UI: keyboard-only.  `1` = pin, `2` = move to PM as issue, `3` =
      read-later, `d` = drop, `s` = snooze 1d, `S` = snooze 1wk.
@@ -62,8 +62,8 @@ day with the existing infra (auth, Hyperdrive, TanStack Start patterns).
    - Restore: `ctx restore <name>` reopens everything.  Diff view shows
      what changed since you left.
 5. **`read-later`** — Reading queue. **[DONE 2026-05-24]**
-   - Live at https://read-later.allen.company (web) +
-     https://read-later-api.allen.company (HMAC API).
+   - Live at https://read-later.allenlabs.org (web) +
+     https://read-later-api.allenlabs.org (HMAC API).
    - Storage: `read_later.items(id, user_id, url, title, excerpt,
      content_html, word_count, estimated_minutes, tags, saved_at, read_at,
      skipped_count, source)` + `read_later.api_clients`.
@@ -77,8 +77,8 @@ day with the existing infra (auth, Hyperdrive, TanStack Start patterns).
      POST `/v1/skip`, POST `/v1/delete`. All HMAC-signed via
      `read_later.api_clients`.
 6. **`stash`** — Snippet / note vault. **[DONE 2026-05-24]**
-   - Live at https://stash.allen.company (web) +
-     https://stash-api.allen.company (HMAC API).
+   - Live at https://stash.allenlabs.org (web) +
+     https://stash-api.allenlabs.org (HMAC API).
    - Storage: `stash.snippets(id, user_id, title, body, language, tags[],
      source, created_at, updated_at, search_tsv GENERATED ALWAYS AS ...
      STORED)` + `stash.api_clients`.  GIN index over `search_tsv` for
@@ -116,7 +116,7 @@ day with the existing infra (auth, Hyperdrive, TanStack Start patterns).
 
 ### Phase E — Glue (after most of A–D exist)
 
-11. **`hub`** — Reverse-proxy + nav shell.  `hub.allen.company` becomes the
+11. **`hub`** — Reverse-proxy + nav shell.  `hub.allenlabs.org` becomes the
     home page; left-rail nav lets you jump to any app w/o re-auth.  Each app
     keeps its own subdomain but `hub` also reverse-proxies for muscle
     memory.
@@ -132,7 +132,7 @@ day with the existing infra (auth, Hyperdrive, TanStack Start patterns).
     delivers it via:
     - Web Push (existing inbox subscription endpoint).
     - Email (existing CF Email Workers binding).
-    - In-app card on `today.allen.company` (the "AI nudge" slot).
+    - In-app card on `today.allenlabs.org` (the "AI nudge" slot).
 
     Example nudges the LLM is prompted to consider:
     - "You closed PM issue 'fix /search 500s' yesterday — the inbox
@@ -193,7 +193,8 @@ cleanly into Phase A–D:
 
 Per-app vitest covers unit + integration on PGlite.  An *additional*
 top-level `tests/e2e/` directory runs **Playwright tests against the
-real deployed workers** at `*.allen.company`.  Goals:
+real deployed workers** at `*.allenlabs.org` (and `auth.allen.company` for
+SSO).  Goals:
 
 - Cover the actual hydration path (TanStack Start has bitten us with
   bundle-leak / virtual-module issues before — only browser-level
@@ -269,5 +270,5 @@ Scaffold plan for `inbox`:
 3. Routes:
    - `/` triage UI (keyboard nav).
    - `/api/capture` POST (HMAC-signed via API worker for CLI/extension).
-4. Deploy to `inbox.allen.company`.
+4. Deploy to `inbox.allenlabs.org`.
 5. Wire up CLI in a follow-up commit (separate package).

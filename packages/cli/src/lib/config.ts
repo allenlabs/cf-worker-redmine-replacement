@@ -25,9 +25,9 @@ export type AppName = 'inbox' | 'focus' | 'context';
 export const APP_NAMES: readonly AppName[] = ['inbox', 'focus', 'context'] as const;
 
 export const DEFAULTS: Record<AppName, { url: string; client_id: string }> = {
-  inbox: { url: 'https://inbox-api.allen.company', client_id: 'cli' },
-  focus: { url: 'https://focus-api.allen.company', client_id: 'cli' },
-  context: { url: 'https://context-api.allen.company', client_id: 'cli' },
+  inbox: { url: 'https://inbox-api.allenlabs.org', client_id: 'cli' },
+  focus: { url: 'https://focus-api.allenlabs.org', client_id: 'cli' },
+  context: { url: 'https://context-api.allenlabs.org', client_id: 'cli' },
 };
 
 /** Resolve the config file path. Respects XDG_CONFIG_HOME, falls back to ~/.config. */

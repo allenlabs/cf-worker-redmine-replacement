@@ -10,7 +10,7 @@
 import { expect, test } from '@playwright/test';
 import { APPS, INBOX_E2E_TAG, inboxText } from './lib/fixtures';
 
-test.describe('today.allen.company', () => {
+test.describe('today.allenlabs.org', () => {
   test('hero card shows ONE NEXT ACTION', async ({ page, request }) => {
     // Seed: one fresh inbox item so the panel has a row + the hero can
     // fall back to inbox even if PM has nothing assigned.

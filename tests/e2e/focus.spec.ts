@@ -1,6 +1,6 @@
 /**
  * Focus: start → note a wobble → done early flow against
- * focus.allen.company.
+ * focus.allenlabs.org.
  *
  * The UI only offers 15/25/45/60-minute presets; the API accepts down to 1
  * minute, so we POST `/api/start` directly with a 1-minute target so the
@@ -13,7 +13,7 @@
 import { expect, test } from '@playwright/test';
 import { APPS, focusTask } from './lib/fixtures';
 
-test.describe('focus.allen.company', () => {
+test.describe('focus.allenlabs.org', () => {
   test('start, distract, end', async ({ page, request }) => {
     const task = focusTask(`tiny focus test ${Date.now()}`);
 
