@@ -18,6 +18,7 @@
     "test:notion": "npm run -w @cf-worker-apps/notion-gateway test",
     "test:inbox": "npm run -w @cf-worker-apps/inbox test",
     "test:focus": "npm run -w @cf-worker-apps/focus test",
+    "test:today": "npm run -w @cf-worker-apps/today test",
     "test:cli": "npm run -w @allenlabs/cli test",
     "dev:pm": "npm run -w @cf-worker-apps/project-management dev",
     "dev:url": "npm run -w @cf-worker-apps/url-shortener dev",
@@ -28,7 +29,8 @@
     "dev:inbox": "npm run -w @cf-worker-apps/inbox dev",
     "dev:inbox:api": "npm run -w @cf-worker-apps/inbox dev:api",
     "dev:focus": "npm run -w @cf-worker-apps/focus dev",
-    "dev:focus:api": "npm run -w @cf-worker-apps/focus dev:api"
+    "dev:focus:api": "npm run -w @cf-worker-apps/focus dev:api",
+    "dev:today": "npm run -w @cf-worker-apps/today dev"
   },
   "engines": {
     "node": ">=20"
