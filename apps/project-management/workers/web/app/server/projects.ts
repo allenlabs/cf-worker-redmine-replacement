@@ -138,6 +138,22 @@ export async function getProjectImpl(
         FROM pm.issues i
         JOIN pm.issue_statuses s ON s.id = i.status_id
         WHERE i.project_id = (SELECT id FROM project_row)
+      ),
+      activity_rows AS (
+        SELECT
+          a.id, a.kind, a.title, a.body,
+          a.created_at AS "createdAt",
+          a.ref_id   AS "refId",
+          a.project_id AS "projectId",
+          p.name AS "projectName",
+          a.user_id AS "userId",
+          u.login AS "userLogin"
+        FROM pm.activities a
+        LEFT JOIN pm.projects p ON p.id = a.project_id
+        INNER JOIN pm.users u ON u.id = a.user_id
+        WHERE a.project_id = (SELECT id FROM project_row)
+        ORDER BY a.created_at DESC
+        LIMIT 10
       )
       SELECT json_build_object(
         'project',    (SELECT row_to_json(p) FROM project_row p),
@@ -148,7 +164,8 @@ export async function getProjectImpl(
         'counts',     COALESCE(
           (SELECT row_to_json(cr) FROM counts_row cr),
           json_build_object('openIssues', 0, 'closedIssues', 0)
-        )
+        ),
+        'activities', COALESCE((SELECT json_agg(ar) FROM activity_rows ar), '[]'::json)
       ) AS data
     `,
   )) as unknown;
@@ -174,6 +191,18 @@ export async function getProjectImpl(
       versions: Array<typeof versions.$inferSelect>;
       categories: Array<typeof issueCategories.$inferSelect>;
       counts: { openIssues: number; closedIssues: number };
+      activities: Array<{
+        id: number;
+        kind: string;
+        title: string;
+        body: string;
+        createdAt: string;
+        refId: number | null;
+        projectId: number | null;
+        projectName: string | null;
+        userId: number;
+        userLogin: string;
+      }>;
     };
   }).data;
   if (!data?.project) throw new Error('Project not found');
@@ -198,6 +227,10 @@ export async function getProjectImpl(
     })),
     categories: data.categories,
     counts: data.counts,
+    activities: data.activities.map((a) => ({
+      ...a,
+      createdAt: new Date(a.createdAt),
+    })),
   };
 }
 

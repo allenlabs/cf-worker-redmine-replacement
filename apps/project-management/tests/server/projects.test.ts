@@ -116,6 +116,7 @@ describe('getProjectImpl', () => {
     expect(result.trackers.length).toBeGreaterThan(0); // seeded + project_trackers
     expect(result.counts.openIssues).toBe(0);
     expect(result.counts.closedIssues).toBe(0);
+    expect(result.activities).toEqual([]);
   });
 
   it('throws Project not found for unknown identifier', async () => {

@@ -1,30 +1,23 @@
+
 import { Link, createFileRoute, getRouteApi } from '@tanstack/react-router';
-import { createServerFn } from '@tanstack/react-start';
 import { ProgressBar } from '~/components/badges';
 import { Markdown } from '~/components/Markdown';
-import { listActivitiesImpl } from '~/server/activities';
-import { getDb } from '~/server/auth-runtime.server';
 import { renderMarkdown } from '~/server/markdown';
 import { timeAgo } from '~/lib/format';
 
 const parentRoute = getRouteApi('/projects/$identifier');
 
-// Inline server fn — TanStack Start 1.168.9 dispatch bug workaround.
-const loadOverview = createServerFn({ method: 'GET' }).handler(async () => {
-  return listActivitiesImpl(getDb(), { projectId: undefined, limit: 10 });
-});
-
+// Activities for this project come from the parent CTE — see
+// server/projects.ts getProjectImpl.  Killing the child loader removes
+// one server-fn round-trip on every project page open (was ~1 s extra,
+// fetched a global activities scan because projectId was undefined).
 export const Route = createFileRoute('/projects/$identifier/')({
-  loader: async () => {
-    const activities = await loadOverview();
-    return { activities };
-  },
   component: ProjectOverview,
 });
 
 function ProjectOverview() {
   const project = parentRoute.useLoaderData();
-  const { activities } = Route.useLoaderData();
+  const activities = project.activities;
   const html = renderMarkdown(project.description);
   const open = project.counts.openIssues;
   const closed = project.counts.closedIssues;
