@@ -6,7 +6,6 @@ import {
   redirect,
 } from '@tanstack/react-router';
 import { getRequest } from '@tanstack/react-start/server';
-import type { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Layout } from '~/components/Layout';
 import { getCurrentUser, getEnv } from '~/server/auth-runtime.server';
@@ -14,7 +13,6 @@ import { readSessionToken, verifySessionToken } from '~/server/session.server';
 import appCss from '~/styles/app.css?url';
 
 interface RouterContext {
-  queryClient: QueryClient;
   user: { id: number; login: string; isAdmin: boolean } | null;
 }
 

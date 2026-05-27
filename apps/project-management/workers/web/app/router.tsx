@@ -1,24 +1,23 @@
-import { QueryClient } from '@tanstack/react-query';
 import { Link, createRouter as createTanStackRouter } from '@tanstack/react-router';
-import { routerWithQueryClient } from '@tanstack/react-router-with-query';
 import { routeTree } from './routeTree.gen';
 
+// We used to wrap the router in `routerWithQueryClient` from
+// `@tanstack/react-router-with-query`, but that package was pinned at 1.130
+// while react-router is 1.170 — a 40-minor drift. The 1.130 wrapper patches
+// router internals (SSR dehydrate/hydrate + navigation) that changed by
+// 1.170; the mismatch made client-side <Link> navigation synchronously crash
+// the renderer (the "click does nothing" report — telemetry showed no request
+// fired and the page process died within ~250ms). react-query is not used
+// anywhere in this app (zero useQuery/useMutation), so the wrapper + the
+// QueryClient were dead weight. Removed; navigation is plain TanStack Router.
 export function createRouter() {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { staleTime: 30_000, refetchOnWindowFocus: false },
-    },
-  });
-  const router = createTanStackRouter({
+  return createTanStackRouter({
     routeTree,
-    context: { queryClient, user: null },
+    context: { user: null },
     defaultPreload: 'intent',
-    // Disabled: the streaming-pending interplay causes the SSR to
-    // commit the pending component before the loader resolves; the
-    // client bundle then hydrates against a real-component tree, and
-    // useLoaderData() is undefined → component crashes.  We accept
-    // longer time-to-first-byte instead so the rendered HTML matches
-    // the eventual hydrated DOM exactly.
+    // Keep SSR from committing a pending component before the loader resolves
+    // (that mismatched the hydrated tree → useLoaderData() undefined crash).
+    // Confirmed NOT related to the client-nav no-op (tested both ways).
     defaultPendingMs: Number.POSITIVE_INFINITY,
     defaultErrorComponent: ({ error }: { error: unknown }) => (
       <div className="p-6 text-red-700">
@@ -38,7 +37,6 @@ export function createRouter() {
       </div>
     ),
   });
-  return routerWithQueryClient(router, queryClient);
 }
 
 // TanStack Start 1.168 plugin reads `getRouter` from the router entry file.
