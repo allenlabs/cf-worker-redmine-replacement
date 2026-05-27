@@ -1,4 +1,4 @@
-import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router';
+import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
 import { z } from 'zod';
@@ -31,7 +31,6 @@ export const Route = createFileRoute('/projects/$identifier/issues/new')({
 function NewIssuePage() {
   const project = parentRoute.useLoaderData();
   const { members } = Route.useLoaderData();
-  const router = useRouter();
   const [form, setForm] = useState({
     trackerId: project.trackers[0]?.id ?? 1,
     subject: '',
@@ -68,12 +67,14 @@ function NewIssuePage() {
         },
       });
       notifySuccess(`Issue #${created.id} created`);
-      // Invalidate so the issues list and parent project (counts) refresh.
-      router.invalidate();
-      router.navigate({
-        to: '/projects/$identifier/issues/$issueId',
-        params: { identifier: project.identifier, issueId: String(created.id) },
-      });
+      // Full-page redirect, NOT router.navigate(). Client-side router
+      // transitions into a loader-backed route currently hang on this
+      // TanStack Start build (same bug worked around with `reloadDocument`
+      // on the project Links). The issue *is* created — a client-side nav
+      // here left the user on a stuck blank page, so it looked like
+      // "New Issue does nothing". A hard nav routes through SSR, which
+      // works.
+      window.location.href = `/projects/${project.identifier}/issues/${created.id}`;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
