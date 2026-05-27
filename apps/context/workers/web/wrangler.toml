@@ -6,6 +6,12 @@ name = "context-web"
 main = "../../dist/server/server.js"
 compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat"]
+
+# Smart Placement: let Cloudflare relocate this worker near the data it talks
+# to (Hyperdrive → Hetzner Postgres in Helsinki), turning the many cross-
+# continent query round-trips per request into in-region hops.
+[placement]
+mode = "smart"
 workers_dev = true
 
 assets = { directory = "../../dist/client", binding = "ASSETS" }

@@ -2,6 +2,12 @@ name = "notion-gateway-web"
 main = "app/server.ts"
 compatibility_date = "2025-09-23"
 compatibility_flags = ["nodejs_compat"]
+
+# Smart Placement: let Cloudflare relocate this worker near the data it talks
+# to (Hyperdrive → Hetzner Postgres in Helsinki), turning the many cross-
+# continent query round-trips per request into in-region hops.
+[placement]
+mode = "smart"
 workers_dev = true
 
 [[routes]]
