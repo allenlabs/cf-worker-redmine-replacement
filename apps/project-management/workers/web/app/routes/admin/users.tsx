@@ -35,6 +35,12 @@ const setStatus = createServerFn({ method: 'POST' })
 
 export const Route = createFileRoute('/admin/users')({
   beforeLoad: async () => {
+    // Server-only gate. `getCurrentUser` is a `*.server.*` helper that the
+    // vite build replaces with an import-protection mock proxy in the client
+    // bundle; `await`ing that mock never settles and would hang client-side
+    // navigation to /admin/users. SSR already gated this route, so bail out
+    // on the client. (See the long note in routes/__root.tsx.)
+    if (typeof document !== 'undefined') return;
     const { getCurrentUser } = await import('~/server/auth-runtime.server');
     const me = await getCurrentUser();
     if (!me?.isAdmin) throw redirect({ to: '/' });

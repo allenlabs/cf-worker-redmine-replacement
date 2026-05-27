@@ -7,6 +7,12 @@ import { createProject } from '~/server/projects';
 
 export const Route = createFileRoute('/projects/new')({
   beforeLoad: async () => {
+    // Server-only gate. `getCurrentUser` is a `*.server.*` helper that the
+    // vite build replaces with an import-protection mock proxy in the client
+    // bundle; `await`ing that mock never settles and would hang client-side
+    // navigation to /projects/new. SSR already gated this route, so bail out
+    // on the client. (See the long note in routes/__root.tsx.)
+    if (typeof document !== 'undefined') return;
     const user = await getCurrentUser();
     if (!user) throw redirect({ to: '/auth/login' });
   },

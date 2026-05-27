@@ -34,23 +34,45 @@ const PUBLIC_PATHS = new Set([
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async () => {
-    // Fast auth gate: verify the JWT in the cfr_session cookie against
-    // JWKS (cached per-isolate, no DB hit).  Trust the JWT — if the
-    // user was deleted/banned, the JWT will be rejected at its next
-    // refresh.  Routes that need the actual users row (e.g. /my/page)
-    // resolve it in their own data SQL.  Saves a Hetzner round-trip
-    // (~400 ms) on every page.
-    // `getRequest()` reads from h3's AsyncLocalStorage and THROWS on the
-    // client ("No StartEvent found in AsyncLocalStorage"). Catch it and
-    // bail out — the initial SSR already gated this isolate; client-side
-    // nav after that doesn't need to re-verify (the JWT cookie is
-    // httpOnly anyway). Letting the throw escape used to silently break
-    // every in-app Link click: URL changed via pushState but the new
-    // route never rendered because beforeLoad rejected.
-    let req: Request | undefined;
-    try { req = getRequest(); } catch { return; }
+    // Server-only auth gate. MUST bail out before touching any server-only
+    // helper when running on the client.
+    //
+    // This `beforeLoad` runs on BOTH the server (SSR) and the client (every
+    // in-app <Link> navigation). The server-only helpers it uses —
+    // `getRequest`/`getEnv` (from auth-runtime.server) and
+    // `verifySessionToken` (from session.server) — are matched by the vite
+    // build's `**/*.server.*` import-protection. We run that protection with
+    // `behavior: 'mock'`, so in the CLIENT bundle these imports are replaced
+    // with import-protection *mock proxies*, not the real functions.
+    //
+    // A mock proxy is a callable object that returns more mock proxies and
+    // never throws. The previous version assumed `getRequest()` would THROW
+    // on the client ("No StartEvent found in AsyncLocalStorage") and guarded
+    // it with try/catch — but the mock does NOT throw, so `req` came back
+    // truthy and execution fell through to `await verifySessionToken(...)`,
+    // i.e. `await <mock proxy>`, which never settles. That hung the root
+    // `beforeLoad` forever: `loadMatches` awaited it, `router.load()` never
+    // resolved, the matched route's loader never ran, no `/_serverFn` fetch
+    // fired, and the new route never rendered. The address bar URL had
+    // already changed via `pushState`, producing the exact "click does
+    // nothing" SPA-navigation bug.
+    //
+    // The fix: detect the client up front (`typeof document !== 'undefined'`)
+    // and return immediately. The auth gate is a server concern only — SSR
+    // already gated this isolate, and the JWT lives in an httpOnly cookie the
+    // client can't read anyway, so re-verifying on client-side nav is both
+    // impossible (no real env/JWKS on the client) and unnecessary.
+    if (typeof document !== 'undefined') return;
+
+    // ----- server (SSR) path below -----
+    // Fast auth gate: verify the JWT in the cfr_session cookie against JWKS
+    // (cached per-isolate, no DB hit). Trust the JWT — if the user was
+    // deleted/banned, the JWT will be rejected at its next refresh. Routes
+    // that need the actual users row (e.g. /my/page) resolve it in their own
+    // data SQL. Saves a Hetzner round-trip (~400 ms) on every page.
+    const req = getRequest();
     if (!req) return;
-    const cookie = req?.headers.get('cookie') ?? null;
+    const cookie = req.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
     // `req.url` is normally a fully-qualified URL on the worker, but during
     // a server-fn-triggered router invalidation it can be a path-only
@@ -59,7 +81,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     // object to primitive value".  Fall back to extracting the pathname
     // defensively so beforeLoad never throws past the React error boundary.
     let pathname: string | null = null;
-    if (req?.url != null) {
+    if (req.url != null) {
       try {
         pathname = new URL(req.url as string | URL).pathname;
       } catch {
@@ -89,14 +111,20 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     // (~400 ms cold).  Routes that actually need the local users row
     // (`/my/page`, `/admin/users`, etc.) resolve it inline in their
     // own data SQL.
-    // `getRequest()` and `getEnv()` are server-only — both THROW on the
-    // client. On client-side nav the SSR has already filled the layout
-    // context, so return null/undefined and let the existing values stay
-    // in place. (TanStack Router uses the last-known loader result for
-    // routes that don't re-resolve.)
-    let req: Request | undefined;
-    try { req = getRequest(); } catch { return { user: null, appName: 'Project Management' }; }
-    const cookie = req?.headers.get('cookie') ?? null;
+    //
+    // Like `beforeLoad`, this runs on both the server and the client. The
+    // server-only helpers here become import-protection mock proxies in the
+    // client bundle (see the long note in `beforeLoad`), so on client-side
+    // nav we MUST bail out before touching them — `await <mock proxy>` never
+    // settles. The SSR already filled the layout context on first paint, and
+    // the root match is never re-resolved on client nav (TanStack keeps the
+    // last-known loader result), so returning a static default is harmless.
+    if (typeof document !== 'undefined') {
+      return { user: null, appName: 'Project Management' };
+    }
+    const req = getRequest();
+    if (!req) return { user: null, appName: 'Project Management' };
+    const cookie = req.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
     const env = getEnv();
     let user: { id: number; login: string; isAdmin: boolean } | null = null;

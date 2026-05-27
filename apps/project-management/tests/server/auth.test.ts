@@ -49,6 +49,26 @@ describe('buildAuthContextImpl', () => {
   it('throws Unauthorized when user is missing', async () => {
     await expect(buildAuthContextImpl(db, 9999)).rejects.toBeInstanceOf(UnauthorizedError);
   });
+
+  it('skips the user lookup when passed a CurrentUser object', async () => {
+    const u = await insertUser(db, { admin: true });
+    const p1 = await insertProject(db, { identifier: 'cu1' });
+    await addManager(db, u.id, p1.id);
+    // Passing the already-known CurrentUser must take the no-DB-lookup branch:
+    // userId + isAdmin come straight off the object, not from users.findFirst.
+    const ctx = await buildAuthContextImpl(db, {
+      id: u.id,
+      login: u.login,
+      email: u.email,
+      firstname: u.firstname,
+      lastname: u.lastname,
+      isAdmin: true,
+      avatarUrl: null,
+    });
+    expect(ctx.userId).toBe(u.id);
+    expect(ctx.isAdmin).toBe(true);
+    expect(ctx.permissionsByProject[p1.id]?.has('manage_members')).toBe(true);
+  });
 });
 
 describe('checkPermission', () => {

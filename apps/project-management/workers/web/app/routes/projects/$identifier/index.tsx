@@ -68,7 +68,6 @@ function ProjectOverview() {
             <Link
               to="/projects/$identifier/issues/new"
               params={{ identifier: project.identifier }}
-              reloadDocument
               className="btn-primary"
             >
               + New issue
