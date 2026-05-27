@@ -13,7 +13,7 @@ import type { Env } from '~/lib/env';
  */
 
 export const SESSION_COOKIE = 'concierge_session';
-export const SESSION_MAX_AGE_SECONDS = 60 * 60; // 1h — matches auth-api JWT expiry.
+export const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60; // 8h — matches auth-api JWT expiry (extended from 1h).
 
 export const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,

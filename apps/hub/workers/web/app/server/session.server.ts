@@ -1,8 +1,13 @@
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import type { Env } from '~/lib/env';
 
-export const SESSION_COOKIE = 'transition_session';
-export const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
+/**
+ * Hub session handling.  Mirrors the token flow used by other TanStack apps
+ * (AUTH_API_URL JWKS + shared Better Auth cookies).
+ */
+
+export const SESSION_COOKIE = 'hub_session';
+export const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60; // 8h — matches auth-api expiry (extended from 1h).
 
 export const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -48,11 +53,9 @@ export async function verifySessionToken(
       issuer: env.AUTH_API_URL,
       audience: env.AUTH_API_URL,
     });
-    /* v8 ignore next */
     if (typeof payload.sub !== 'string') return null;
     return payload as SessionPayload;
   } catch (err) {
-    /* v8 ignore next */
     console.error(
       '[verifySessionToken] failed:',
       err instanceof Error ? `${err.name}: ${err.message}` : String(err),

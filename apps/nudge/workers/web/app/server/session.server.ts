@@ -2,7 +2,7 @@ import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import type { Env } from '~/lib/env';
 
 export const SESSION_COOKIE = 'nudge_session';
-export const SESSION_MAX_AGE_SECONDS = 60 * 60;
+export const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
 
 export const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
