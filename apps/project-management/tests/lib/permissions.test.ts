@@ -4,6 +4,7 @@ import {
   ForbiddenError,
   UnauthorizedError,
   hasPermission,
+  permissionsForTeamRole,
   type AuthContext,
   type Permission,
 } from '~/lib/permissions';
@@ -87,5 +88,57 @@ describe('ALL_PERMISSIONS', () => {
       'view_roadmap',
     ];
     for (const p of expected) expect(ALL_PERMISSIONS).toContain(p);
+  });
+});
+
+describe('permissionsForTeamRole', () => {
+  it('viewer + member get read-only access', () => {
+    for (const role of ['viewer', 'member']) {
+      const set = permissionsForTeamRole(role);
+      expect(set.has('view_project')).toBe(true);
+      expect(set.has('view_issues')).toBe(true);
+      expect(set.has('add_issues')).toBe(false);
+      expect(set.has('edit_project')).toBe(false);
+      expect(set.has('manage_members')).toBe(false);
+    }
+  });
+
+  it('commenter can add/edit issues but not edit the project', () => {
+    const set = permissionsForTeamRole('commenter');
+    expect(set.has('add_issues')).toBe(true);
+    expect(set.has('edit_issues')).toBe(true);
+    expect(set.has('add_issue_notes')).toBe(true);
+    expect(set.has('edit_project')).toBe(false);
+    expect(set.has('manage_wiki')).toBe(false);
+  });
+
+  it('contributor gains wiki/version/category but not project edit', () => {
+    const set = permissionsForTeamRole('contributor');
+    expect(set.has('manage_wiki')).toBe(true);
+    expect(set.has('manage_versions')).toBe(true);
+    expect(set.has('manage_categories')).toBe(true);
+    expect(set.has('log_time')).toBe(true);
+    expect(set.has('edit_project')).toBe(false);
+    expect(set.has('manage_members')).toBe(false);
+  });
+
+  it('maintainer gains project edit but not delete/manage_members', () => {
+    const set = permissionsForTeamRole('maintainer');
+    expect(set.has('edit_project')).toBe(true);
+    expect(set.has('delete_project')).toBe(false);
+    expect(set.has('manage_members')).toBe(false);
+  });
+
+  it('owner and admin get the full permission set', () => {
+    for (const role of ['owner', 'admin']) {
+      const set = permissionsForTeamRole(role);
+      expect(set.size).toBe(ALL_PERMISSIONS.length);
+      expect(set.has('delete_project')).toBe(true);
+      expect(set.has('manage_members')).toBe(true);
+    }
+  });
+
+  it('unknown roles grant nothing', () => {
+    expect(permissionsForTeamRole('bogus').size).toBe(0);
   });
 });

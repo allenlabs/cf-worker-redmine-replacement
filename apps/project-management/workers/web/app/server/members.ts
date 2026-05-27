@@ -3,8 +3,113 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { type DB } from '~/db/client';
 import { members, projects, roles, users } from '~/db/schema';
-import { getDb, requirePermission, requireUser } from './auth-runtime.server';
+import { getDb, getEnv, requirePermission, requireUser } from './auth-runtime.server';
+import {
+  inviteMember,
+  listTeamMembers,
+  removeMember as orgRemoveMember,
+  setMemberRole as orgSetMemberRole,
+  type OrgClientDeps,
+  type TeamInvitation,
+  type TeamMember,
+} from './org-client';
 import { getRefData } from './ref-data';
+import type { Env } from '~/lib/env';
+
+type OrgEnv = Pick<Env, 'AUTH_API_URL' | 'PM_ORG_HMAC_CLIENT_ID' | 'PM_ORG_HMAC_SECRET'>;
+
+/** AC team roles a PM member can be assigned, in ascending capability order. */
+export const TEAM_ROLE_OPTIONS = [
+  'viewer',
+  'commenter',
+  'contributor',
+  'maintainer',
+  'owner',
+] as const;
+export type TeamRoleOption = (typeof TEAM_ROLE_OPTIONS)[number];
+
+/**
+ * Resolve a project's backing Better Auth team id by PM project id. Returns
+ * null when the project has no team yet (legacy projects pre-backfill).
+ */
+export async function teamIdForProjectImpl(db: DB, projectId: number): Promise<string | null> {
+  const row = await db
+    .select({ authTeamId: projects.authTeamId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  return row[0]?.authTeamId ?? null;
+}
+
+export interface TeamMembersResult {
+  teamId: string | null;
+  members: TeamMember[];
+  invitations: TeamInvitation[];
+}
+
+/** Load the team roster + pending invites for a project's backing team. */
+export async function loadTeamMembersImpl(
+  db: DB,
+  env: OrgEnv,
+  projectId: number,
+  deps?: OrgClientDeps,
+): Promise<TeamMembersResult> {
+  const teamId = await teamIdForProjectImpl(db, projectId);
+  if (!teamId) return { teamId: null, members: [], invitations: [] };
+  const { members, invitations } = await listTeamMembers(env, teamId, deps);
+  return { teamId, members, invitations };
+}
+
+/** Invite a collaborator by email at the given AC role. */
+export async function inviteMemberImpl(
+  db: DB,
+  env: OrgEnv,
+  args: { actingUserId: string; projectId: number; email: string; role: string },
+  deps?: OrgClientDeps,
+): Promise<{ ok: true; invitationId: string | null }> {
+  const teamId = await teamIdForProjectImpl(db, args.projectId);
+  if (!teamId) throw new Error('This project has no collaboration team yet.');
+  const res = await inviteMember(
+    env,
+    { actingUserId: args.actingUserId, teamId, email: args.email, role: args.role },
+    deps,
+  );
+  return { ok: true, invitationId: res.invitationId };
+}
+
+/** Change a team member's role. */
+export async function setTeamMemberRoleImpl(
+  db: DB,
+  env: OrgEnv,
+  args: { actingUserId: string; projectId: number; targetUserId: string; role: string },
+  deps?: OrgClientDeps,
+): Promise<{ ok: true }> {
+  const teamId = await teamIdForProjectImpl(db, args.projectId);
+  if (!teamId) throw new Error('This project has no collaboration team yet.');
+  await orgSetMemberRole(
+    env,
+    { actingUserId: args.actingUserId, teamId, targetUserId: args.targetUserId, role: args.role },
+    deps,
+  );
+  return { ok: true };
+}
+
+/** Remove a team member. */
+export async function removeTeamMemberImpl(
+  db: DB,
+  env: OrgEnv,
+  args: { actingUserId: string; projectId: number; targetUserId: string },
+  deps?: OrgClientDeps,
+): Promise<{ ok: true }> {
+  const teamId = await teamIdForProjectImpl(db, args.projectId);
+  if (!teamId) throw new Error('This project has no collaboration team yet.');
+  await orgRemoveMember(
+    env,
+    { actingUserId: args.actingUserId, teamId, targetUserId: args.targetUserId },
+    deps,
+  );
+  return { ok: true };
+}
 
 export async function listMembersImpl(db: DB, projectId: number) {
   return db
@@ -113,6 +218,66 @@ export const changeMemberRole = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await requirePermission(data.projectId, 'manage_members');
     return changeMemberRoleImpl(getDb(), data.memberId, data.roleId);
+  });
+
+// ---------- Phase 2: team-backed collaborators ----------
+
+const teamRoleSchema = z.enum(TEAM_ROLE_OPTIONS);
+
+export const loadTeamMembers = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => z.object({ projectId: z.number() }).parse(d))
+  .handler(async ({ data }) => {
+    // Anyone who can view the members tab can see the roster.
+    await requirePermission(data.projectId, 'view_project');
+    return loadTeamMembersImpl(getDb(), getEnv(), data.projectId);
+  });
+
+export const inviteTeamMember = createServerFn({ method: 'POST' })
+  .inputValidator((d: unknown) =>
+    z
+      .object({ projectId: z.number(), email: z.string().email(), role: teamRoleSchema })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { user } = await requirePermission(data.projectId, 'manage_members');
+    if (!user.betterAuthUserId) throw new Error('Your account is missing its auth link.');
+    return inviteMemberImpl(getDb(), getEnv(), {
+      actingUserId: user.betterAuthUserId,
+      projectId: data.projectId,
+      email: data.email,
+      role: data.role,
+    });
+  });
+
+export const setTeamMemberRole = createServerFn({ method: 'POST' })
+  .inputValidator((d: unknown) =>
+    z
+      .object({ projectId: z.number(), targetUserId: z.string(), role: teamRoleSchema })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { user } = await requirePermission(data.projectId, 'manage_members');
+    if (!user.betterAuthUserId) throw new Error('Your account is missing its auth link.');
+    return setTeamMemberRoleImpl(getDb(), getEnv(), {
+      actingUserId: user.betterAuthUserId,
+      projectId: data.projectId,
+      targetUserId: data.targetUserId,
+      role: data.role,
+    });
+  });
+
+export const removeTeamMember = createServerFn({ method: 'POST' })
+  .inputValidator((d: unknown) =>
+    z.object({ projectId: z.number(), targetUserId: z.string() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { user } = await requirePermission(data.projectId, 'manage_members');
+    if (!user.betterAuthUserId) throw new Error('Your account is missing its auth link.');
+    return removeTeamMemberImpl(getDb(), getEnv(), {
+      actingUserId: user.betterAuthUserId,
+      projectId: data.projectId,
+      targetUserId: data.targetUserId,
+    });
   });
 
 /* v8 ignore stop */

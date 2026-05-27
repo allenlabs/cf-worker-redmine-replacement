@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  displayName,
   formatDate,
   formatDateTime,
   formatHours,
+  handle,
   slugify,
   timeAgo,
 } from '~/lib/format';
@@ -125,5 +127,58 @@ describe('slugify', () => {
 
   it('returns empty for a fully-stripped string', () => {
     expect(slugify('!!!')).toBe('');
+  });
+});
+
+describe('displayName', () => {
+  it('prefers preferredName over everything', () => {
+    expect(
+      displayName({
+        preferredName: 'Al',
+        firstname: 'Allen',
+        lastname: 'Lim',
+        name: 'Allen Lim',
+        username: 'allenlim',
+        login: 'allen',
+      }),
+    ).toBe('Al');
+  });
+
+  it('falls back to firstname + lastname', () => {
+    expect(displayName({ firstname: 'Allen', lastname: 'Lim' })).toBe('Allen Lim');
+  });
+
+  it('uses just firstname when lastname is blank', () => {
+    expect(displayName({ firstname: 'Allen', lastname: '   ' })).toBe('Allen');
+  });
+
+  it('falls back to name when firstname/lastname are empty', () => {
+    expect(displayName({ firstname: '', lastname: '', name: 'Display Name' })).toBe(
+      'Display Name',
+    );
+  });
+
+  it('falls back to username, then login, then email-local', () => {
+    expect(displayName({ username: 'handle' })).toBe('handle');
+    expect(displayName({ login: 'thelogin' })).toBe('thelogin');
+    expect(displayName({ email: 'someone@example.com' })).toBe('someone');
+  });
+
+  it('returns Unknown when nothing usable is present', () => {
+    expect(displayName({})).toBe('Unknown');
+    expect(displayName({ preferredName: '   ', name: null, email: '' })).toBe('Unknown');
+  });
+});
+
+describe('handle', () => {
+  it('prefixes a non-empty username with @', () => {
+    expect(handle('allenlim')).toBe('@allenlim');
+  });
+
+  it('returns empty for blank/nullish usernames', () => {
+    expect(handle('')).toBe('');
+    expect(handle('   ')).toBe('');
+    expect(handle(null)).toBe('');
+    expect(handle(undefined)).toBe('');
   });
 });

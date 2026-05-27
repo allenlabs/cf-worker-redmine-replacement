@@ -69,6 +69,55 @@ describe('buildAuthContextImpl', () => {
     expect(ctx.isAdmin).toBe(true);
     expect(ctx.permissionsByProject[p1.id]?.has('manage_members')).toBe(true);
   });
+
+  it('derives per-project permissions from JWT team memberships', async () => {
+    const u = await insertUser(db);
+    const p = await insertProject(db, { identifier: 'team-p', authTeamId: 'team_abc' });
+    const ctx = await buildAuthContextImpl(db, u.id, [
+      { teamId: 'team_abc', role: 'maintainer' },
+    ]);
+    // maintainer → edit_project but not delete/manage_members.
+    expect(ctx.permissionsByProject[p.id]?.has('view_project')).toBe(true);
+    expect(ctx.permissionsByProject[p.id]?.has('edit_project')).toBe(true);
+    expect(ctx.permissionsByProject[p.id]?.has('manage_members')).toBe(false);
+  });
+
+  it('reads team memberships off the passed CurrentUser', async () => {
+    const u = await insertUser(db);
+    const p = await insertProject(db, { identifier: 'team-cu', authTeamId: 'team_cu' });
+    const ctx = await buildAuthContextImpl(db, {
+      id: u.id,
+      login: u.login,
+      email: u.email,
+      firstname: u.firstname,
+      lastname: u.lastname,
+      isAdmin: false,
+      avatarUrl: null,
+      teamMemberships: [{ teamId: 'team_cu', role: 'viewer' }],
+    });
+    expect(ctx.permissionsByProject[p.id]?.has('view_project')).toBe(true);
+    expect(ctx.permissionsByProject[p.id]?.has('add_issues')).toBe(false);
+  });
+
+  it('unions team-derived perms with the legacy pm.members path', async () => {
+    const u = await insertUser(db);
+    const teamProject = await insertProject(db, { identifier: 'tp', authTeamId: 'team_x' });
+    const legacyProject = await insertProject(db, { identifier: 'lp' });
+    await addManager(db, u.id, legacyProject.id);
+    const ctx = await buildAuthContextImpl(db, u.id, [
+      { teamId: 'team_x', role: 'commenter' },
+    ]);
+    expect(ctx.permissionsByProject[teamProject.id]?.has('add_issues')).toBe(true);
+    expect(ctx.permissionsByProject[legacyProject.id]?.has('manage_members')).toBe(true);
+  });
+
+  it('ignores team memberships whose team maps to no project', async () => {
+    const u = await insertUser(db);
+    const ctx = await buildAuthContextImpl(db, u.id, [
+      { teamId: 'team_orphan', role: 'owner' },
+    ]);
+    expect(Object.keys(ctx.permissionsByProject)).toHaveLength(0);
+  });
 });
 
 describe('checkPermission', () => {
@@ -106,6 +155,90 @@ describe('userFromSessionImpl', () => {
     expect(me?.login).toBe(u.login);
   });
 
+  it('carries team memberships from the JWT onto the CurrentUser', async () => {
+    await insertUser(db, { betterAuthUserId: 'ba-team' });
+    const env = makeTestEnv();
+    const token = await signTestJwt(env, {
+      sub: 'ba-team',
+      teamMemberships: [{ teamId: 'team_z', role: 'contributor' }],
+    });
+    const me = await userFromSessionImpl(db, env, cookieHeader(token));
+    expect(me?.teamMemberships).toEqual([{ teamId: 'team_z', role: 'contributor' }]);
+  });
+
+  it('syncs username/preferredName from the JWT when they changed', async () => {
+    const u = await insertUser(db, { betterAuthUserId: 'ba-sync' });
+    const env = makeTestEnv();
+    const token = await signTestJwt(env, {
+      sub: 'ba-sync',
+      username: 'newhandle',
+      preferredName: 'Preferred',
+    });
+    const me = await userFromSessionImpl(db, env, cookieHeader(token));
+    expect(me?.username).toBe('newhandle');
+    expect(me?.preferredName).toBe('Preferred');
+    const refreshed = await db.query.users.findFirst({ where: eq(users.id, u.id) });
+    expect(refreshed?.username).toBe('newhandle');
+    expect(refreshed?.preferredName).toBe('Preferred');
+  });
+
+  it('syncs only the changed field, preserving the other', async () => {
+    const u = await insertUser(db, {
+      betterAuthUserId: 'ba-partial',
+      username: 'keep',
+      preferredName: 'KeepPreferred',
+    });
+    const env = makeTestEnv();
+    // Only preferredName changes; username claim is absent (null) so the
+    // existing username must be preserved via the `?? row.username` branch.
+    const token = await signTestJwt(env, {
+      sub: 'ba-partial',
+      preferredName: 'ChangedPreferred',
+    });
+    const me = await userFromSessionImpl(db, env, cookieHeader(token));
+    expect(me?.username).toBe('keep');
+    expect(me?.preferredName).toBe('ChangedPreferred');
+    const refreshed = await db.query.users.findFirst({ where: eq(users.id, u.id) });
+    expect(refreshed?.username).toBe('keep');
+    expect(refreshed?.preferredName).toBe('ChangedPreferred');
+  });
+
+  it('preserves preferredName when only username changes', async () => {
+    const u = await insertUser(db, {
+      betterAuthUserId: 'ba-uname-only',
+      username: 'oldname',
+      preferredName: 'StayPreferred',
+    });
+    const env = makeTestEnv();
+    // Only username changes; preferredName claim is absent → keep existing.
+    const token = await signTestJwt(env, {
+      sub: 'ba-uname-only',
+      username: 'newname',
+    });
+    const me = await userFromSessionImpl(db, env, cookieHeader(token));
+    expect(me?.username).toBe('newname');
+    expect(me?.preferredName).toBe('StayPreferred');
+    const refreshed = await db.query.users.findFirst({ where: eq(users.id, u.id) });
+    expect(refreshed?.preferredName).toBe('StayPreferred');
+  });
+
+  it('does not write when JWT profile fields already match', async () => {
+    await insertUser(db, {
+      betterAuthUserId: 'ba-nochange',
+      username: 'same',
+      preferredName: 'Same',
+    });
+    const env = makeTestEnv();
+    const token = await signTestJwt(env, {
+      sub: 'ba-nochange',
+      username: 'same',
+      preferredName: 'Same',
+    });
+    const me = await userFromSessionImpl(db, env, cookieHeader(token));
+    expect(me?.username).toBe('same');
+    expect(me?.teamMemberships).toEqual([]);
+  });
+
   it('returns null when JWT.sub has no matching better_auth_user_id', async () => {
     await insertUser(db, { betterAuthUserId: 'ba-user-1' });
     const env = makeTestEnv();
@@ -129,6 +262,47 @@ describe('findOrCreateUserBySsoImpl', () => {
       email: 'unused@example.com',
     });
     expect(out.id).toBe(existing.id);
+  });
+
+  it('syncs username/preferredName onto a linked user', async () => {
+    const existing = await insertUser(db, { betterAuthUserId: 'linked-sync' });
+    const out = await findOrCreateUserBySsoImpl(db, {
+      sub: 'linked-sync',
+      email: 'unused@example.com',
+      username: 'synced',
+      preferredName: 'Synced Name',
+    });
+    expect(out.id).toBe(existing.id);
+    expect(out.username).toBe('synced');
+    expect(out.preferredName).toBe('Synced Name');
+    const refreshed = await db.query.users.findFirst({ where: eq(users.id, existing.id) });
+    expect(refreshed?.username).toBe('synced');
+  });
+
+  it('persists username/preferredName on a brand-new user', async () => {
+    const out = await findOrCreateUserBySsoImpl(db, {
+      sub: 'new-with-profile',
+      email: 'profile@example.com',
+      name: 'Profile User',
+      username: 'profileuser',
+      preferredName: 'Prof',
+    });
+    expect(out.username).toBe('profileuser');
+    expect(out.preferredName).toBe('Prof');
+    expect(out.betterAuthUserId).toBe('new-with-profile');
+  });
+
+  it('backfills username/preferredName on an email-matched user', async () => {
+    const existing = await insertUser(db, { email: 'bf@example.com' });
+    const out = await findOrCreateUserBySsoImpl(db, {
+      sub: 'bf-uuid',
+      email: 'bf@example.com',
+      username: 'bfhandle',
+      preferredName: 'BF',
+    });
+    expect(out.id).toBe(existing.id);
+    expect(out.username).toBe('bfhandle');
+    expect(out.preferredName).toBe('BF');
   });
 
   it('backfills the link onto an existing user matched by email', async () => {

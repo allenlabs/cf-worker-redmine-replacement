@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { type DB } from '~/db/client';
-import { members, roles, users } from '~/db/schema';
+import { members, projects, roles, users } from '~/db/schema';
 import type { Env } from '~/lib/env';
 import {
   type AuthContext,
@@ -8,11 +8,13 @@ import {
   ForbiddenError,
   UnauthorizedError,
   hasPermission,
+  permissionsForTeamRole,
 } from '~/lib/permissions';
 import {
   readSessionToken,
   verifySessionToken,
   type SessionPayload,
+  type TeamMembershipClaim,
 } from './session.server';
 
 export interface CurrentUser {
@@ -23,6 +25,16 @@ export interface CurrentUser {
   lastname: string;
   isAdmin: boolean;
   avatarUrl: string | null;
+  // Better Auth user id (JWT `sub`). Needed to act on the user's behalf
+  // against the auth-api org/team bridge.
+  betterAuthUserId?: string | null;
+  // Suite-wide profile fields (synced from the auth JWT on sign-in).
+  username?: string | null;
+  preferredName?: string | null;
+  // Per-team (= per-project) memberships from the JWT — the Phase 2 source of
+  // truth for collaboration RBAC. Carried so buildAuthContext can derive
+  // per-project permissions without another DB hop.
+  teamMemberships?: TeamMembershipClaim[];
 }
 
 // ---------- testable impls ----------
@@ -37,13 +49,24 @@ export interface CurrentUser {
  *     CurrentUser to skip the `users.findFirst` round-trip.  Saves a
  *     full Hetzner RTT (~150 ms) on every loader that already called
  *     `getCurrentUser()` upstream — which is essentially every route.
+ *
+ * Phase 2: per-project permissions now derive from TWO sources, unioned:
+ *   1. The JWT's `teamMemberships` (the new source of truth) — each team maps
+ *      to a project via `projects.auth_team_id`, and the team role maps to a
+ *      PM permission set (see permissionsForTeamRole).
+ *   2. The legacy `pm.members` + `pm.roles` path — kept working as a fallback
+ *      during the transition.
+ * The `teamMemberships` are read off the passed CurrentUser when present, or
+ * from the explicit `teamMemberships` arg (tests / callers with a bare id).
  */
 export async function buildAuthContextImpl(
   db: DB,
   userIdOrCurrent: number | CurrentUser,
+  teamMemberships?: TeamMembershipClaim[],
 ): Promise<AuthContext> {
   let userId: number;
   let isAdmin: boolean;
+  let teams: TeamMembershipClaim[] = teamMemberships ?? [];
   if (typeof userIdOrCurrent === 'number') {
     userId = userIdOrCurrent;
     const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
@@ -52,8 +75,41 @@ export async function buildAuthContextImpl(
   } else {
     userId = userIdOrCurrent.id;
     isAdmin = userIdOrCurrent.isAdmin;
+    // Prefer the explicit arg, else the memberships carried on the user.
+    if (!teamMemberships && userIdOrCurrent.teamMemberships) {
+      teams = userIdOrCurrent.teamMemberships;
+    }
   }
 
+  const permissionsByProject: Record<number, Set<Permission>> = {};
+  const add = (projectId: number, perms: Iterable<Permission>) => {
+    const existing = permissionsByProject[projectId] ?? new Set<Permission>();
+    for (const p of perms) existing.add(p);
+    permissionsByProject[projectId] = existing;
+  };
+
+  // 1. Team-membership (Phase 2) — resolve team ids → project ids in one query.
+  if (teams.length > 0) {
+    const teamIds = teams.map((t) => t.teamId);
+    const teamProjects = await db
+      .select({ id: projects.id, authTeamId: projects.authTeamId })
+      .from(projects)
+      .where(inArray(projects.authTeamId, teamIds));
+    const projectIdByTeam = new Map<string, number>();
+    for (const p of teamProjects) {
+      // The inArray filter guarantees authTeamId is non-null in results; the
+      // guard only narrows the type.
+      /* v8 ignore next */
+      if (p.authTeamId) projectIdByTeam.set(p.authTeamId, p.id);
+    }
+    for (const t of teams) {
+      const projectId = projectIdByTeam.get(t.teamId);
+      if (projectId === undefined) continue;
+      add(projectId, permissionsForTeamRole(t.role));
+    }
+  }
+
+  // 2. Legacy pm.members path (fallback / transition).
   const memberships = await db
     .select({
       projectId: members.projectId,
@@ -62,13 +118,10 @@ export async function buildAuthContextImpl(
     .from(members)
     .innerJoin(roles, eq(members.roleId, roles.id))
     .where(eq(members.userId, userId));
-
-  const permissionsByProject: Record<number, Set<Permission>> = {};
   for (const m of memberships) {
-    const existing = permissionsByProject[m.projectId] ?? new Set<Permission>();
-    for (const p of m.permissions as Permission[]) existing.add(p);
-    permissionsByProject[m.projectId] = existing;
+    add(m.projectId, m.permissions as Permission[]);
   }
+
   return { userId, isAdmin, permissionsByProject };
 }
 
@@ -91,6 +144,25 @@ export async function userFromSessionImpl(
     where: eq(users.betterAuthUserId, payload.sub),
   });
   if (!row || row.status !== 'active') return null;
+
+  // Keep the local handle/preferred name in step with the JWT (Phase 1
+  // profile fields). Only write when something actually changed so we don't
+  // pay a write on every request.
+  const claimUsername = payload.username ?? null;
+  const claimPreferred = payload.preferredName ?? null;
+  if (
+    (claimUsername !== null && claimUsername !== row.username) ||
+    (claimPreferred !== null && claimPreferred !== row.preferredName)
+  ) {
+    await db
+      .update(users)
+      .set({
+        username: claimUsername ?? row.username,
+        preferredName: claimPreferred ?? row.preferredName,
+      })
+      .where(eq(users.id, row.id));
+  }
+
   return {
     id: row.id,
     login: row.login,
@@ -99,6 +171,10 @@ export async function userFromSessionImpl(
     lastname: row.lastname,
     isAdmin: row.admin,
     avatarUrl: row.avatarUrl,
+    betterAuthUserId: row.betterAuthUserId,
+    username: claimUsername ?? row.username,
+    preferredName: claimPreferred ?? row.preferredName,
+    teamMemberships: payload.teamMemberships ?? [],
   };
 }
 
@@ -121,13 +197,30 @@ export async function findOrCreateUserBySsoImpl(
 ): Promise<CurrentUser> {
   const email = payload.email?.toLowerCase().trim();
 
+  const claimUsername = payload.username ?? null;
+  const claimPreferred = payload.preferredName ?? null;
+
   // 1. Direct link by better_auth_user_id.  Cold-start connection-level
   // retries are handled centrally in `~/db/client` (the postgres.js client
   // is proxied to retry once on connection-shaped errors).
   const linked = await db.query.users.findFirst({
     where: eq(users.betterAuthUserId, payload.sub),
   });
-  if (linked) return toCurrentUser(linked);
+  if (linked) {
+    await db
+      .update(users)
+      .set({
+        lastLoginAt: new Date(),
+        username: claimUsername ?? linked.username,
+        preferredName: claimPreferred ?? linked.preferredName,
+      })
+      .where(eq(users.id, linked.id));
+    return toCurrentUser({
+      ...linked,
+      username: claimUsername ?? linked.username,
+      preferredName: claimPreferred ?? linked.preferredName,
+    });
+  }
 
   // 2. Existing user matched by email — backfill the link.
   if (email) {
@@ -135,7 +228,12 @@ export async function findOrCreateUserBySsoImpl(
     if (byEmail) {
       await db
         .update(users)
-        .set({ betterAuthUserId: payload.sub, lastLoginAt: new Date() })
+        .set({
+          betterAuthUserId: payload.sub,
+          lastLoginAt: new Date(),
+          username: claimUsername ?? byEmail.username,
+          preferredName: claimPreferred ?? byEmail.preferredName,
+        })
         .where(eq(users.id, byEmail.id));
       /* v8 ignore next 2 */
       const refreshed =
@@ -162,6 +260,8 @@ export async function findOrCreateUserBySsoImpl(
       firstname: name1,
       lastname: nameRest.join(' '),
       betterAuthUserId: payload.sub,
+      username: claimUsername,
+      preferredName: claimPreferred,
       admin: isFirstUser,
       status: 'active',
       lastLoginAt: new Date(),
@@ -192,6 +292,9 @@ function toCurrentUser(row: typeof users.$inferSelect): CurrentUser {
     lastname: row.lastname,
     isAdmin: row.admin,
     avatarUrl: row.avatarUrl,
+    betterAuthUserId: row.betterAuthUserId,
+    username: row.username,
+    preferredName: row.preferredName,
   };
 }
 

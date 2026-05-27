@@ -55,6 +55,16 @@ const loadProjects = createServerFn({ method: 'GET' }).handler(async () => {
   const payload = await verifySessionToken(env, token);
   if (!payload?.sub) return [] as ProjectRow[];
   const sub = payload.sub;
+  // Phase 2: a project is visible if its Better Auth team id is among the
+  // user's JWT team memberships. drizzle's `sql` template EXPANDS a JS array
+  // into separate placeholders (for IN-lists), which breaks `= ANY($n::text[])`.
+  // So we build a single Postgres array literal string and bind it as ONE
+  // scalar param, casting it to text[] in SQL. Empty list => '{}' which ANY
+  // never matches. Team ids are [A-Za-z0-9_] so no escaping is needed, but we
+  // defensively strip anything else.
+  const teamIds = (payload.teamMemberships ?? []).map((t) => t.teamId);
+  const teamIdArrayLiteral =
+    '{' + teamIds.map((id) => id.replace(/[^A-Za-z0-9_-]/g, '')).join(',') + '}';
 
   const result = (await db.execute(
     sql`
@@ -75,9 +85,11 @@ const loadProjects = createServerFn({ method: 'GET' }).handler(async () => {
       p.status
     FROM pm.projects p
     WHERE
-      -- Admin sees everything; non-admin gets public OR membership.
+      -- Admin sees everything; non-admin gets public OR team membership
+      -- (Phase 2) OR legacy pm.members membership.
       (SELECT "isAdmin" FROM me LIMIT 1) = true
       OR p.is_public
+      OR (p.auth_team_id IS NOT NULL AND p.auth_team_id = ANY(${teamIdArrayLiteral}::text[]))
       OR EXISTS (
         SELECT 1 FROM pm.members m
         WHERE m.user_id = (SELECT id FROM me) AND m.project_id = p.id

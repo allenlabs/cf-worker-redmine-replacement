@@ -42,4 +42,13 @@ export interface Env {
   NOTION_GATEWAY_URL: string;
   NOTION_GATEWAY_CLIENT_ID: string;
   NOTION_GATEWAY_SECRET: string;
+
+  // PM ↔ auth-api org/team bridge.  PM maps each project to a Better Auth team
+  // inside org `allenlabs` and manages per-project collaborators via the
+  // HMAC-signed /sso/org/* endpoints on auth-api (AUTH_API_URL).  The shared
+  // secret is pushed via `wrangler secret put PM_ORG_HMAC_SECRET` and must
+  // match the value set on the auth-api worker.  Client id is the X-Client-Id
+  // header value the auth side expects (default "pm").
+  PM_ORG_HMAC_SECRET: string;
+  PM_ORG_HMAC_CLIENT_ID: string;
 }

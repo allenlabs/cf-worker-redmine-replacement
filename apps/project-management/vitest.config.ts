@@ -53,6 +53,8 @@ export default defineConfig({
                 AUTH_WEB_URL: 'https://auth.test',
                 AUTH_API_URL: 'https://auth-api.test',
                 PUBLIC_BASE_URL: 'http://localhost:3000',
+                PM_ORG_HMAC_CLIENT_ID: 'pm',
+                PM_ORG_HMAC_SECRET: 'test-org-hmac-secret-1234567890abcd',
               },
             },
           }),

@@ -33,12 +33,35 @@ export const SESSION_COOKIE_OPTIONS = {
   maxAge: SESSION_MAX_AGE_SECONDS,
 };
 
+/** One per-team membership the auth-api JWT carries (PM Phase 2). */
+export interface TeamMembershipClaim {
+  teamId: string;
+  teamName?: string;
+  orgId?: string;
+  orgSlug?: string;
+  role: string; // AC role: owner|admin|maintainer|contributor|commenter|viewer|member
+}
+
+/** One org membership the JWT carries. */
+export interface OrgMembershipClaim {
+  orgId: string;
+  orgSlug?: string;
+  orgName?: string;
+  role: string;
+}
+
 export interface SessionPayload extends JWTPayload {
   sub: string;       // Better Auth user id (UUID string)
   email?: string;
   name?: string | null;
-  role?: string | null;
+  // Suite-wide profile fields (Phase 1). Present from the auth-api JWT.
+  username?: string | null;
+  preferredName?: string | null;
+  role?: string | null; // platform role: 'admin' | 'user'
   banned?: boolean | number | null;
+  memberships?: OrgMembershipClaim[];
+  // Per-team (= per-project) memberships with the user's role on each team.
+  teamMemberships?: TeamMembershipClaim[];
 }
 
 // JWKS cache — one entry per JWKS URL, shared across requests within the

@@ -2,16 +2,15 @@ import { createFileRoute, getRouteApi, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
 import { z } from 'zod';
-import { formatDate } from '~/lib/format';
+import { displayName, formatDate, handle } from '~/lib/format';
 import { notifyError, notifySuccess } from '~/lib/toast';
-import { buildAuthContext, getCurrentUser, getDb } from '~/server/auth-runtime.server';
+import { buildAuthContext, getCurrentUser, getDb, getEnv } from '~/server/auth-runtime.server';
 import {
-  addMember,
-  changeMemberRole,
-  listAllUsersImpl,
-  listMembersImpl,
-  listRolesImpl,
-  removeMember,
+  inviteTeamMember,
+  loadTeamMembersImpl,
+  removeTeamMember,
+  setTeamMemberRole,
+  TEAM_ROLE_OPTIONS,
 } from '~/server/members';
 import { getProjectImpl } from '~/server/projects';
 
@@ -26,12 +25,11 @@ const loadMembers = createServerFn({ method: 'GET' })
     const ctx = me && !me.isAdmin ? await buildAuthContext(me.id) : null;
     const db = getDb();
     const project = await getProjectImpl(db, me, ctx, data.identifier);
-    const [members, users, roles] = await Promise.all([
-      listMembersImpl(db, project.id),
-      listAllUsersImpl(db),
-      listRolesImpl(db),
-    ]);
-    return { members, users, roles };
+    const team = await loadTeamMembersImpl(db, getEnv(), project.id);
+    // Whether the viewer can manage members governs which controls render.
+    const canManage =
+      !!me?.isAdmin || !!ctx?.permissionsByProject[project.id]?.has('manage_members');
+    return { team, canManage };
   });
 
 export const Route = createFileRoute('/projects/$identifier/members')({
@@ -39,42 +37,42 @@ export const Route = createFileRoute('/projects/$identifier/members')({
   component: MembersPage,
 });
 
+const ROLE_LABELS: Record<string, string> = {
+  viewer: 'Viewer',
+  commenter: 'Commenter',
+  contributor: 'Contributor',
+  maintainer: 'Maintainer',
+  owner: 'Owner',
+  admin: 'Admin',
+  member: 'Member',
+};
+
 function MembersPage() {
   const project = parentRoute.useLoaderData();
-  const { members, users, roles } = Route.useLoaderData();
+  const { team, canManage } = Route.useLoaderData();
   const router = useRouter();
-  const [userId, setUserId] = useState<number | ''>('');
-  const [roleId, setRoleId] = useState<number>(roles[0]?.id ?? 0);
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<string>('viewer');
+  const [busy, setBusy] = useState(false);
 
-  const memberUserIds = new Set(members.map((m) => m.userId));
-  const candidates = users.filter((u) => !memberUserIds.has(u.id));
-
-  async function add() {
-    if (!userId || !roleId) return;
+  async function invite() {
+    if (!email) return;
+    setBusy(true);
     try {
-      await addMember({ data: { projectId: project.id, userId: Number(userId), roleId } });
-      setUserId('');
-      notifySuccess('Member added');
+      await inviteTeamMember({ data: { projectId: project.id, email, role } });
+      setEmail('');
+      notifySuccess(`Invitation sent to ${email}`);
       router.invalidate();
     } catch (err) {
-      notifyError(`Could not add member: ${err instanceof Error ? err.message : String(err)}`);
+      notifyError(`Could not invite: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBusy(false);
     }
   }
 
-  async function remove(memberId: number) {
-    if (!confirm('Remove this member?')) return;
+  async function changeRole(targetUserId: string, newRole: string) {
     try {
-      await removeMember({ data: { memberId, projectId: project.id } });
-      notifySuccess('Member removed');
-      router.invalidate();
-    } catch (err) {
-      notifyError(`Could not remove member: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-
-  async function changeRole(memberId: number, newRoleId: number) {
-    try {
-      await changeMemberRole({ data: { memberId, projectId: project.id, roleId: newRoleId } });
+      await setTeamMemberRole({ data: { projectId: project.id, targetUserId, role: newRole } });
       notifySuccess('Role updated');
       router.invalidate();
     } catch (err) {
@@ -82,56 +80,124 @@ function MembersPage() {
     }
   }
 
+  async function remove(targetUserId: string) {
+    if (!confirm('Remove this member from the project?')) return;
+    try {
+      await removeTeamMember({ data: { projectId: project.id, targetUserId } });
+      notifySuccess('Member removed');
+      router.invalidate();
+    } catch (err) {
+      notifyError(`Could not remove member: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (!team.teamId) {
+    return (
+      <div className="space-y-4">
+        <header><h2 className="text-xl font-semibold">Members</h2></header>
+        <p className="text-sm text-gray-500">
+          This project isn’t linked to a collaboration team yet, so members can’t be
+          managed here.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <header><h2 className="text-xl font-semibold">Members</h2></header>
 
-      <div className="card p-3 flex flex-wrap items-end gap-3">
-        <div className="flex-1 min-w-[12rem]">
-          <label className="label">User</label>
-          <select className="select" value={userId} onChange={(e) => setUserId(e.target.value ? Number(e.target.value) : '')}>
-            <option value="">— pick a user —</option>
-            {candidates.map((u) => (
-              <option key={u.id} value={u.id}>{u.login} ({u.email})</option>
-            ))}
-          </select>
+      {canManage && (
+        <div className="card p-3 flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[14rem]">
+            <label className="label">Invite by email</label>
+            <input
+              className="select"
+              type="email"
+              placeholder="person@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label">Role</label>
+            <select className="select" value={role} onChange={(e) => setRole(e.target.value)}>
+              {TEAM_ROLE_OPTIONS.map((r) => (
+                <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
+              ))}
+            </select>
+          </div>
+          <button className="btn-primary" onClick={invite} disabled={!email || busy}>
+            Send invite
+          </button>
         </div>
-        <div>
-          <label className="label">Role</label>
-          <select className="select" value={roleId} onChange={(e) => setRoleId(Number(e.target.value))}>
-            {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
-        </div>
-        <button className="btn-primary" onClick={add} disabled={!userId}>Add member</button>
-      </div>
+      )}
 
-      {members.length === 0 ? (
-        <p className="text-sm text-gray-500">No members.</p>
+      {team.members.length === 0 ? (
+        <p className="text-sm text-gray-500">No members yet.</p>
       ) : (
         <table className="data-table card">
           <thead>
-            <tr><th>User</th><th>Email</th><th>Role</th><th>Joined</th><th></th></tr>
+            <tr><th>Member</th><th>Email</th><th>Role</th>{canManage && <th></th>}</tr>
           </thead>
           <tbody>
-            {members.map((m) => (
-              <tr key={m.id}>
-                <td>{m.login}</td>
-                <td>{m.email}</td>
-                <td>
-                  <select
-                    className="select w-40"
-                    value={m.roleId}
-                    onChange={(e) => changeRole(m.id, Number(e.target.value))}
-                  >
-                    {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </select>
-                </td>
-                <td>{formatDate(m.createdAt)}</td>
-                <td><button className="btn-danger" onClick={() => remove(m.id)}>Remove</button></td>
-              </tr>
-            ))}
+            {team.members.map((m) => {
+              const name = displayName(m);
+              const h = handle(m.username);
+              return (
+                <tr key={m.userId}>
+                  <td>
+                    {name}
+                    {h && <span className="text-xs text-gray-400 ml-1">{h}</span>}
+                  </td>
+                  <td>{m.email}</td>
+                  <td>
+                    {canManage ? (
+                      <select
+                        className="select w-40"
+                        value={m.role}
+                        onChange={(e) => changeRole(m.userId, e.target.value)}
+                      >
+                        {TEAM_ROLE_OPTIONS.map((r) => (
+                          <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      ROLE_LABELS[m.role] ?? m.role
+                    )}
+                  </td>
+                  {canManage && (
+                    <td>
+                      <button className="btn-danger" onClick={() => remove(m.userId)}>
+                        Remove
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+      )}
+
+      {team.invitations.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-gray-700">Pending invitations</h3>
+          <table className="data-table card">
+            <thead>
+              <tr><th>Email</th><th>Role</th><th>Expires</th></tr>
+            </thead>
+            <tbody>
+              {team.invitations.map((inv) => (
+                <tr key={inv.id}>
+                  <td>{inv.email}</td>
+                  <td>{ROLE_LABELS[inv.role ?? ''] ?? inv.role ?? '—'}</td>
+                  <td>{formatDate(inv.expiresAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
     </div>
   );

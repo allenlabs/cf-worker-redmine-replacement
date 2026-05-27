@@ -131,9 +131,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     if (token) {
       const payload = await verifySessionToken(env, token);
       if (payload?.sub) {
+        // Suite-wide display convention: preferredName → name → username →
+        // email-local. Sourced straight from the JWT (no DB hit).
         const displayName =
-          (typeof payload.email === 'string' && payload.email.split('@')[0]) ||
+          (typeof payload.preferredName === 'string' && payload.preferredName) ||
           (typeof payload.name === 'string' && payload.name) ||
+          (typeof payload.username === 'string' && payload.username) ||
+          (typeof payload.email === 'string' && payload.email.split('@')[0]) ||
           'user';
         user = {
           // No local users.id available without a DB hit; the layout

@@ -24,12 +24,20 @@ const NOTION_DROP_MIGRATION = readFileSync(
   join(ROOT, 'drizzle-pg', '0004_drop_notion.sql'),
   'utf8',
 );
+// Phase 2: projects.auth_team_id + users.username/preferred_name. The backfill
+// UPDATEs in this file target specific prod identifiers/user-ids that don't
+// exist in a fresh test DB, so they no-op harmlessly.
+const PHASE2_MIGRATION = readFileSync(
+  join(ROOT, 'drizzle-pg', '0005_pm_phase2.sql'),
+  'utf8',
+);
 
 export async function makeTestDb(opts?: { seed?: boolean }): Promise<TestDB> {
   const pglite = new PGlite();
   await pglite.exec(MIGRATION);
   await pglite.exec(NOTION_MIGRATION);
   await pglite.exec(NOTION_DROP_MIGRATION);
+  await pglite.exec(PHASE2_MIGRATION);
   if (opts?.seed !== false) await pglite.exec(SEED);
   // The migration sets search_path inline, but it scopes to the session that
   // executed the DDL. Re-pin it on the live connection so helper inserts

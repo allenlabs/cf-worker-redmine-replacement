@@ -19,8 +19,10 @@ import {
 } from '~/lib/permissions';
 import { logActivityImpl } from './activities';
 import { type CurrentUser } from './auth';
-import { buildAuthContext, getDb, getCurrentUser, requirePermission, requireUser } from './auth-runtime.server';
+import { buildAuthContext, getDb, getCurrentUser, getEnv, requirePermission, requireUser } from './auth-runtime.server';
+import { createTeam, type OrgClientDeps } from './org-client';
 import { getRefData } from './ref-data';
+import type { Env } from '~/lib/env';
 
 const DEFAULT_MODULES = [
   'issue_tracking',
@@ -234,15 +236,40 @@ export async function getProjectImpl(
   };
 }
 
+type CreateProjectOrgEnv = Pick<
+  Env,
+  'AUTH_API_URL' | 'PM_ORG_HMAC_CLIENT_ID' | 'PM_ORG_HMAC_SECRET'
+>;
+
 export async function createProjectImpl(
   db: DB,
   user: CurrentUser,
   data: CreateProjectInput,
+  org?: { env: CreateProjectOrgEnv; deps?: OrgClientDeps },
 ): Promise<typeof projects.$inferSelect> {
   const existing = await db.query.projects.findFirst({
     where: eq(projects.identifier, data.identifier),
   });
   if (existing) throw new Error(`Identifier "${data.identifier}" is already used.`);
+
+  // Create the backing Better Auth team (in org_allenlabs) BEFORE inserting the
+  // project so we can store its id. Best-effort: if the auth-api bridge is
+  // unreachable, fall back to a null team id (legacy pm.members RBAC still
+  // works; the team can be backfilled). Requires the acting user's Better Auth
+  // id — present for SSO users; absent only for legacy/local rows.
+  let authTeamId: string | null = null;
+  if (org && user.betterAuthUserId) {
+    try {
+      const created = await createTeam(
+        org.env,
+        { actingUserId: user.betterAuthUserId, name: data.name, slug: data.identifier },
+        org.deps,
+      );
+      authTeamId = created.teamId;
+    } catch (err) {
+      console.error('[org] createTeam failed; project will have no team yet:', err);
+    }
+  }
 
   const [project] = await db
     .insert(projects)
@@ -252,6 +279,7 @@ export async function createProjectImpl(
       description: data.description,
       homepage: data.homepage,
       isPublic: data.isPublic,
+      authTeamId,
     })
     .returning();
   /* v8 ignore next */
@@ -336,7 +364,8 @@ export const createProject = createServerFn({ method: 'POST' })
   .inputValidator((d: unknown) => createProjectSchema.parse(d))
   .handler(async ({ data }) => {
     const user = await requireUser();
-    return createProjectImpl(getDb(), user, data);
+    const env = getEnv();
+    return createProjectImpl(getDb(), user, data, { env });
   });
 
 export const updateProject = createServerFn({ method: 'POST' })

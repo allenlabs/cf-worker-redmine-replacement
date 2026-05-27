@@ -90,6 +90,10 @@ export function makeTestEnv(overrides: Partial<Env> = {}): Env {
     NOTION_GATEWAY_URL: 'https://notion-api.test',
     NOTION_GATEWAY_CLIENT_ID: 'pm',
     NOTION_GATEWAY_SECRET: 'test-gateway-secret-1234567890ab',
+    // Org bridge: URL reuses AUTH_API_URL; secret is a fixed-length string so
+    // HMAC derivation succeeds in unit tests.
+    PM_ORG_HMAC_CLIENT_ID: 'pm',
+    PM_ORG_HMAC_SECRET: 'test-org-hmac-secret-1234567890abcd',
     ...overrides,
   };
 }

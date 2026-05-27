@@ -33,6 +33,11 @@ export const users = pm.table(
     // local user row by this column. Nullable so existing rows survive
     // the migration unchanged.
     betterAuthUserId: text('better_auth_user_id'),
+    // Suite-wide public handle + preferred display name, synced from the auth
+    // user (JWT `username` / `preferredName`) on sign-in. Nullable; display
+    // falls back to firstname/lastname/login when absent.
+    username: text('username'),
+    preferredName: text('preferred_name'),
     avatarUrl: text('avatar_url'),
     admin: boolean('admin').notNull().default(false),
     status: text('status', { enum: ['active', 'locked'] }).notNull().default('active'),
@@ -71,6 +76,9 @@ export const projects = pm.table(
     description: text('description').notNull().default(''),
     homepage: text('homepage').notNull().default(''),
     isPublic: boolean('is_public').notNull().default(false),
+    // Better Auth team id (inside org_allenlabs) backing this project's
+    // per-project collaborators. Set on create; nullable for legacy rows.
+    authTeamId: text('auth_team_id'),
     parentId: integer('parent_id'),
     status: text('status', { enum: ['active', 'closed', 'archived'] })
       .notNull()
@@ -85,6 +93,7 @@ export const projects = pm.table(
   (t) => ({
     identifierIdx: uniqueIndex('projects_identifier_idx').on(t.identifier),
     parentIdx: index('projects_parent_idx').on(t.parentId),
+    authTeamIdx: index('projects_auth_team_id_idx').on(t.authTeamId),
   }),
 );
 

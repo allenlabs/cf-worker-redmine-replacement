@@ -286,6 +286,63 @@ describe('createProjectImpl', () => {
     const ms = await db.query.members.findMany();
     expect(ms).toHaveLength(0);
   });
+
+  it('creates a backing Better Auth team and stores its id when org is provided', async () => {
+    const { vi } = await import('vitest');
+    const u = await insertUser(db, { betterAuthUserId: 'ba-creator' });
+    let body = '';
+    const fetcher = vi.fn(async (_u: string, init: RequestInit) => {
+      body = init.body as string;
+      return new Response(JSON.stringify({ teamId: 'team_new', slug: 'team-proj' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as unknown as typeof fetch;
+    const created = await createProjectImpl(
+      db,
+      makeUser({ id: u.id, login: u.login, betterAuthUserId: 'ba-creator' }),
+      { identifier: 'team-proj', name: 'Team Proj', description: '', homepage: '', isPublic: false },
+      {
+        env: { AUTH_API_URL: 'https://auth-api.test', PM_ORG_HMAC_CLIENT_ID: 'pm', PM_ORG_HMAC_SECRET: 'sekret-1234567890' },
+        deps: { fetcher },
+      },
+    );
+    expect(created.authTeamId).toBe('team_new');
+    expect(JSON.parse(body)).toMatchObject({ actingUserId: 'ba-creator', name: 'Team Proj' });
+  });
+
+  it('falls back to a null team id when the org bridge fails', async () => {
+    const { vi } = await import('vitest');
+    const u = await insertUser(db, { betterAuthUserId: 'ba-fail' });
+    const fetcher = vi.fn(async () => new Response('nope', { status: 500 })) as unknown as typeof fetch;
+    const created = await createProjectImpl(
+      db,
+      makeUser({ id: u.id, login: u.login, betterAuthUserId: 'ba-fail' }),
+      { identifier: 'team-fail', name: 'Team Fail', description: '', homepage: '', isPublic: false },
+      {
+        env: { AUTH_API_URL: 'https://auth-api.test', PM_ORG_HMAC_CLIENT_ID: 'pm', PM_ORG_HMAC_SECRET: 'sekret-1234567890' },
+        deps: { fetcher },
+      },
+    );
+    expect(created.authTeamId).toBeNull();
+  });
+
+  it('skips team creation when the user has no Better Auth id', async () => {
+    const { vi } = await import('vitest');
+    const u = await insertUser(db);
+    const fetcher = vi.fn() as unknown as typeof fetch;
+    const created = await createProjectImpl(
+      db,
+      makeUser({ id: u.id, login: u.login, betterAuthUserId: null }),
+      { identifier: 'no-ba', name: 'No BA', description: '', homepage: '', isPublic: false },
+      {
+        env: { AUTH_API_URL: 'https://auth-api.test', PM_ORG_HMAC_CLIENT_ID: 'pm', PM_ORG_HMAC_SECRET: 'sekret-1234567890' },
+        deps: { fetcher },
+      },
+    );
+    expect(created.authTeamId).toBeNull();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
 });
 
 describe('updateProjectImpl', () => {

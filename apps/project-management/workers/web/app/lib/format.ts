@@ -40,6 +40,43 @@ export function formatHours(n: number | null | undefined): string {
   return `${n.toFixed(2).replace(/\.00$/, '')} h`;
 }
 
+/**
+ * Resolve the display name for a person across PM. Preference order matches the
+ * suite-wide convention: preferredName → name (firstname+lastname) → username →
+ * login → email-local-part → 'Unknown'. Whitespace-only values are skipped.
+ */
+export function displayName(person: {
+  preferredName?: string | null;
+  firstname?: string | null;
+  lastname?: string | null;
+  name?: string | null;
+  username?: string | null;
+  login?: string | null;
+  email?: string | null;
+}): string {
+  const pick = (v: string | null | undefined): string | null => {
+    const t = (v ?? '').trim();
+    return t.length > 0 ? t : null;
+  };
+  const fullName = pick(
+    [pick(person.firstname), pick(person.lastname)].filter(Boolean).join(' ') || person.name,
+  );
+  return (
+    pick(person.preferredName) ??
+    fullName ??
+    pick(person.username) ??
+    pick(person.login) ??
+    pick(person.email?.split('@')[0]) ??
+    'Unknown'
+  );
+}
+
+/** Render a @handle when a username exists, else empty string. */
+export function handle(username: string | null | undefined): string {
+  const u = (username ?? '').trim();
+  return u ? `@${u}` : '';
+}
+
 export function slugify(s: string): string {
   return s
     .toLowerCase()
