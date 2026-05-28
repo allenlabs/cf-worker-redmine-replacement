@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { Link, createRouter as createTanStackRouter } from '@tanstack/react-router';
 import { routerWithQueryClient } from '@tanstack/react-router-with-query';
+import { DEFAULT_LOCALE } from '@allenlabs/i18n';
 import { routeTree } from './routeTree.gen';
 
 export function createRouter() {
@@ -11,7 +12,7 @@ export function createRouter() {
   });
   const router = createTanStackRouter({
     routeTree,
-    context: { queryClient, user: null },
+    context: { queryClient, user: null, locale: DEFAULT_LOCALE },
     defaultPreload: 'intent',
     defaultPendingMs: Number.POSITIVE_INFINITY,
     defaultErrorComponent: ({ error }: { error: unknown }) => (

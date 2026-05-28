@@ -11,10 +11,16 @@ import type { ReactNode } from 'react';
 import { getEnv } from '~/server/auth-runtime.server';
 import { readSessionToken, verifySessionToken } from '~/server/session.server';
 import appCss from '~/styles/app.css?url';
+import { DEFAULT_LOCALE, type Locale } from '@allenlabs/i18n';
+import { resolveLocale } from '@allenlabs/i18n/server';
+import { I18nProvider } from '@allenlabs/i18n/react';
+import { appDict } from '~/i18n/dict';
+import { LanguagePicker } from '~/i18n/picker';
 
 interface RouterContext {
   queryClient: QueryClient;
   user: { id: number; login: string; isAdmin: boolean } | null;
+  locale: Locale;
 }
 
 const PUBLIC_PATHS = new Set([
@@ -59,6 +65,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const token = readSessionToken(cookie);
     const env = getEnv();
     let user: { id: number; login: string; isAdmin: boolean } | null = null;
+    let jwtLocale: string | null = null;
     if (token) {
       const payload = await verifySessionToken(env, token);
       if (payload?.sub) {
@@ -67,9 +74,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
           (typeof payload.name === 'string' && payload.name) ||
           'user';
         user = { id: -1, login: displayName, isAdmin: false };
+        if (typeof payload.locale === 'string') jwtLocale = payload.locale;
       }
     }
-    return { user, appName: env.APP_NAME ?? 'Gentle' };
+    const locale = req
+      ? resolveLocale(req as unknown as Request, jwtLocale)
+      : DEFAULT_LOCALE;
+    return { user, appName: env.APP_NAME ?? 'Gentle', locale };
   },
   head: () => ({
     meta: [
@@ -90,16 +101,23 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootComponent() {
+  const data = Route.useLoaderData();
+  const locale = data?.locale ?? DEFAULT_LOCALE;
   return (
-    <RootDocument>
-      <Outlet />
+    <RootDocument locale={locale}>
+      <I18nProvider locale={locale} dict={appDict}>
+        <div className="fixed top-2 right-2 z-50">
+          <LanguagePicker />
+        </div>
+        <Outlet />
+      </I18nProvider>
     </RootDocument>
   );
 }
 
-function RootDocument({ children }: { children: ReactNode }) {
+function RootDocument({ locale, children }: { locale: Locale; children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang={locale}>
       <head>
         <HeadContent />
       </head>

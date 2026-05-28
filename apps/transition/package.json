@@ -2,7 +2,7 @@
   "name": "@cf-worker-apps/transition",
   "version": "0.1.0",
   "private": true,
-  "description": "Ritual prompts on context switch — three-step prompt that fires when a focus session ends or the user runs `al ctx save`.  Externalises working memory before the brain drops the thread.",
+  "description": "Ritual prompts on context switch \u2014 three-step prompt that fires when a focus session ends or the user runs `al ctx save`.  Externalises working memory before the brain drops the thread.",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -19,6 +19,7 @@
     "test:coverage": "vitest run --project=node --project=jsdom --coverage"
   },
   "dependencies": {
+    "@allenlabs/i18n": "*",
     "@microlabs/otel-cf-workers": "^1.0.0-rc.52",
     "@tanstack/react-query": "5.100.11",
     "@tanstack/react-router": "1.170.8",

@@ -2,7 +2,7 @@
   "name": "@cf-worker-apps/solved",
   "version": "0.1.0",
   "private": true,
-  "description": "Searchable personal knowledge base — auto-captured 'I figured this out' entries with FTS + tag search.  TanStack Start SSR worker + HMAC API worker.",
+  "description": "Searchable personal knowledge base \u2014 auto-captured 'I figured this out' entries with FTS + tag search.  TanStack Start SSR worker + HMAC API worker.",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -19,6 +19,7 @@
     "test:coverage": "vitest run --project=node --project=jsdom --coverage"
   },
   "dependencies": {
+    "@allenlabs/i18n": "*",
     "@microlabs/otel-cf-workers": "^1.0.0-rc.52",
     "@tanstack/react-query": "5.100.11",
     "@tanstack/react-router": "1.170.8",

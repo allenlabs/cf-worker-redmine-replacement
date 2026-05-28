@@ -2,7 +2,7 @@
   "name": "@cf-worker-apps/intent",
   "version": "0.1.0",
   "private": true,
-  "description": "Externalised current intent — one line that lives everywhere (CLI PS1, mobile widget, menubar).  TanStack Start SSR worker + HMAC API worker.",
+  "description": "Externalised current intent \u2014 one line that lives everywhere (CLI PS1, mobile widget, menubar).  TanStack Start SSR worker + HMAC API worker.",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -19,6 +19,7 @@
     "test:coverage": "vitest run --project=node --project=jsdom --coverage"
   },
   "dependencies": {
+    "@allenlabs/i18n": "*",
     "@microlabs/otel-cf-workers": "^1.0.0-rc.52",
     "@tanstack/react-query": "5.100.11",
     "@tanstack/react-router": "1.170.8",

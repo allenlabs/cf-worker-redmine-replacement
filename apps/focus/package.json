@@ -2,7 +2,7 @@
   "name": "@cf-worker-apps/focus",
   "version": "0.1.0",
   "private": true,
-  "description": "Pomodoro + single-task lock for ADHD developers — TanStack Start SSR worker + HMAC API worker (CLI / browser extension / mobile PWA).",
+  "description": "Pomodoro + single-task lock for ADHD developers \u2014 TanStack Start SSR worker + HMAC API worker (CLI / browser extension / mobile PWA).",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -19,6 +19,7 @@
     "test:coverage": "vitest run --project=node --project=jsdom --coverage"
   },
   "dependencies": {
+    "@allenlabs/i18n": "*",
     "@microlabs/otel-cf-workers": "^1.0.0-rc.52",
     "@tanstack/react-query": "5.100.11",
     "@tanstack/react-router": "1.170.8",

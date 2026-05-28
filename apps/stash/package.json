@@ -2,7 +2,7 @@
   "name": "@cf-worker-apps/stash",
   "version": "0.1.0",
   "private": true,
-  "description": "Frictionless snippet/note vault for ADHD developers — paste code, commands, notes, recall via tag/full-text search.  TanStack Start SSR worker + HMAC API worker.",
+  "description": "Frictionless snippet/note vault for ADHD developers \u2014 paste code, commands, notes, recall via tag/full-text search.  TanStack Start SSR worker + HMAC API worker.",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -19,6 +19,7 @@
     "test:coverage": "vitest run --project=node --project=jsdom --coverage"
   },
   "dependencies": {
+    "@allenlabs/i18n": "*",
     "@microlabs/otel-cf-workers": "^1.0.0-rc.52",
     "@tanstack/react-query": "5.100.11",
     "@tanstack/react-router": "1.170.8",

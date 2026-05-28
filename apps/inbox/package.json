@@ -19,6 +19,7 @@
     "test:coverage": "vitest run --project=node --project=jsdom --coverage"
   },
   "dependencies": {
+    "@allenlabs/i18n": "*",
     "@betternotify/core": "^1.0.0-beta.8",
     "@betternotify/webpush": "^1.0.0-beta.4",
     "@microlabs/otel-cf-workers": "^1.0.0-rc.52",

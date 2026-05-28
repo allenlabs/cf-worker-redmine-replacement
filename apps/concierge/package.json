@@ -2,7 +2,7 @@
   "name": "@cf-worker-apps/concierge",
   "version": "0.1.0",
   "private": true,
-  "description": "AI proactive-nudge worker for the Allen Labs SaaS suite — TanStack Start admin UI + HMAC API worker (cross-app event ingress) + cron worker (every 30 min).",
+  "description": "AI proactive-nudge worker for the Allen Labs SaaS suite \u2014 TanStack Start admin UI + HMAC API worker (cross-app event ingress) + cron worker (every 30 min).",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -21,6 +21,7 @@
     "test:coverage": "vitest run --project=node --project=jsdom --coverage"
   },
   "dependencies": {
+    "@allenlabs/i18n": "*",
     "@microlabs/otel-cf-workers": "^1.0.0-rc.52",
     "@tanstack/react-query": "5.100.11",
     "@tanstack/react-router": "1.170.8",
