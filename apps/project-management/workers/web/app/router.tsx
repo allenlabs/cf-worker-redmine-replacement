@@ -1,5 +1,6 @@
 import { Link, createRouter as createTanStackRouter } from '@tanstack/react-router';
 import { routeTree } from './routeTree.gen';
+import { DEFAULT_LOCALE } from '@allenlabs/i18n';
 
 // We used to wrap the router in `routerWithQueryClient` from
 // `@tanstack/react-router-with-query`, but that package was pinned at 1.130
@@ -13,7 +14,7 @@ import { routeTree } from './routeTree.gen';
 export function createRouter() {
   return createTanStackRouter({
     routeTree,
-    context: { user: null },
+    context: { user: null, locale: DEFAULT_LOCALE },
     defaultPreload: 'intent',
     // Keep SSR from committing a pending component before the loader resolves
     // (that mismatched the hydrated tree → useLoaderData() undefined crash).

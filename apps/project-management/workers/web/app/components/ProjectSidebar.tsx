@@ -1,4 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router';
+import { useT } from '@allenlabs/i18n/react';
 
 interface Props {
   identifier: string;
@@ -8,6 +9,7 @@ interface Props {
 
 export function ProjectSidebar({ identifier, projectName, modules }: Props) {
   const loc = useLocation();
+  const { t } = useT();
   const base = `/projects/${identifier}`;
   const item = (href: string, label: string, show = true) => {
     if (!show) return null;
@@ -26,21 +28,21 @@ export function ProjectSidebar({ identifier, projectName, modules }: Props) {
       <div className="px-3 py-2 text-xs text-gray-500 uppercase tracking-wide">
         {projectName}
       </div>
-      {item(`${base}`, 'Overview')}
-      {item(`${base}/activity`, 'Activity')}
-      {item(`${base}/issues`, 'Issues', modules.includes('issue_tracking'))}
-      {item(`${base}/gantt`, 'Gantt', modules.includes('gantt'))}
-      {item(`${base}/roadmap`, 'Roadmap', modules.includes('roadmap'))}
-      {item(`${base}/wiki`, 'Wiki', modules.includes('wiki'))}
-      {item(`${base}/files`, 'Files', modules.includes('files'))}
-      {item(`${base}/time`, 'Time', modules.includes('time_tracking'))}
+      {item(`${base}`, t('sidebar.overview'))}
+      {item(`${base}/activity`, t('sidebar.activity'))}
+      {item(`${base}/issues`, t('sidebar.issues'), modules.includes('issue_tracking'))}
+      {item(`${base}/gantt`, t('sidebar.gantt'), modules.includes('gantt'))}
+      {item(`${base}/roadmap`, t('sidebar.roadmap'), modules.includes('roadmap'))}
+      {item(`${base}/wiki`, t('sidebar.wiki'), modules.includes('wiki'))}
+      {item(`${base}/files`, t('sidebar.files'), modules.includes('files'))}
+      {item(`${base}/time`, t('sidebar.time'), modules.includes('time_tracking'))}
       <div className="px-3 py-1.5 mt-3 text-xs text-gray-500 uppercase tracking-wide">
-        Configure
+        {t('sidebar.configure')}
       </div>
-      {item(`${base}/members`, 'Members')}
-      {item(`${base}/versions`, 'Versions')}
-      {item(`${base}/categories`, 'Categories')}
-      {item(`${base}/settings`, 'Settings')}
+      {item(`${base}/members`, t('sidebar.members'))}
+      {item(`${base}/versions`, t('sidebar.versions'))}
+      {item(`${base}/categories`, t('sidebar.categories'))}
+      {item(`${base}/settings`, t('sidebar.settings'))}
     </aside>
   );
 }

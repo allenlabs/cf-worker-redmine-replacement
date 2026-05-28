@@ -11,9 +11,14 @@ import { Layout } from '~/components/Layout';
 import { getCurrentUser, getEnv } from '~/server/auth-runtime.server';
 import { readSessionToken, verifySessionToken } from '~/server/session.server';
 import appCss from '~/styles/app.css?url';
+import { DEFAULT_LOCALE, type Locale } from '@allenlabs/i18n';
+import { resolveLocale } from '@allenlabs/i18n/server';
+import { I18nProvider } from '@allenlabs/i18n/react';
+import { pmDict } from '~/i18n/dict';
 
 interface RouterContext {
   user: { id: number; login: string; isAdmin: boolean } | null;
+  locale: Locale;
 }
 
 /**
@@ -120,14 +125,17 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     // the root match is never re-resolved on client nav (TanStack keeps the
     // last-known loader result), so returning a static default is harmless.
     if (typeof document !== 'undefined') {
-      return { user: null, appName: 'Project Management' };
+      return { user: null, appName: 'Project Management', locale: DEFAULT_LOCALE };
     }
     const req = getRequest();
-    if (!req) return { user: null, appName: 'Project Management' };
+    if (!req) {
+      return { user: null, appName: 'Project Management', locale: DEFAULT_LOCALE };
+    }
     const cookie = req.headers.get('cookie') ?? null;
     const token = readSessionToken(cookie);
     const env = getEnv();
     let user: { id: number; login: string; isAdmin: boolean } | null = null;
+    let jwtLocale: string | null = null;
     if (token) {
       const payload = await verifySessionToken(env, token);
       if (payload?.sub) {
@@ -151,11 +159,17 @@ export const Route = createRootRouteWithContext<RouterContext>()({
           // Pages that gate on admin (e.g. /admin/*) must re-check.
           isAdmin: false,
         };
+        if (typeof payload.locale === 'string') jwtLocale = payload.locale;
       }
     }
+    // Locale priority: cookie → JWT claim → Accept-Language → 'en'. resolved
+    // server-side so the very first SSR paint is already in the right language
+    // (no flash-of-English on a Korean session).
+    const locale = resolveLocale(req as unknown as Request, jwtLocale);
     return {
       user,
       appName: env.APP_NAME ?? 'Project Management',
+      locale,
     };
   },
   head: () => ({
@@ -188,18 +202,27 @@ function RootComponent() {
   const data = Route.useLoaderData();
   const user = data?.user ?? null;
   const appName = data?.appName ?? 'Project Management';
+  const locale = data?.locale ?? DEFAULT_LOCALE;
   return (
-    <RootDocument>
-      <Layout user={user} appName={appName}>
-        <Outlet />
-      </Layout>
+    <RootDocument locale={locale}>
+      <I18nProvider locale={locale} dict={pmDict}>
+        <Layout user={user} appName={appName}>
+          <Outlet />
+        </Layout>
+      </I18nProvider>
     </RootDocument>
   );
 }
 
-function RootDocument({ children }: { children: ReactNode }) {
+function RootDocument({
+  locale,
+  children,
+}: {
+  locale: Locale;
+  children: ReactNode;
+}) {
   return (
-    <html lang="en">
+    <html lang={locale}>
       <head>
         <HeadContent />
       </head>

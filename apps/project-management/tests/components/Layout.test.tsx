@@ -9,6 +9,8 @@ import {
   Outlet,
 } from '@tanstack/react-router';
 import { Layout } from '~/components/Layout';
+import { I18nProvider } from '@allenlabs/i18n/react';
+import { pmDict } from '~/i18n/dict';
 
 function renderAt(
   path: string,
@@ -17,9 +19,11 @@ function renderAt(
 ) {
   const rootRoute = createRootRoute({
     component: () => (
-      <Layout user={user} appName={appName}>
-        <Outlet />
-      </Layout>
+      <I18nProvider locale="en" dict={pmDict}>
+        <Layout user={user} appName={appName}>
+          <Outlet />
+        </Layout>
+      </I18nProvider>
     ),
   });
   // Add stub child routes so <Link> targets resolve cleanly.
@@ -54,10 +58,11 @@ describe('Layout', () => {
     expect(await screen.findByText('My Tracker')).toBeInTheDocument();
   });
 
-  it('shows Logout when signed in', async () => {
+  it('shows the sign-out link when signed in', async () => {
     renderAt('/', { id: 1, login: 'alice', isAdmin: false });
     expect(await screen.findByText('alice')).toBeInTheDocument();
-    expect(screen.getByText('Logout')).toBeInTheDocument();
+    // The shared i18n common dict renders 'nav.signOut' as 'Sign out' in en.
+    expect(screen.getByText('Sign out')).toBeInTheDocument();
   });
 
   it('shows Sign in when signed out', async () => {
