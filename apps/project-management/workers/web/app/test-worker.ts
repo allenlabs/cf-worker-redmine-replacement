@@ -79,18 +79,9 @@ export default {
       return new Response(await obj.text(), { status: 200 });
     }
 
-    if (url.pathname === '/api/kv/set' && req.method === 'POST') {
-      const key = url.searchParams.get('key')!;
-      const value = await req.text();
-      await env.SESSION_KV.put(key, value, { expirationTtl: 60 });
-      return json({ ok: true });
-    }
-
-    if (url.pathname === '/api/kv/get' && req.method === 'GET') {
-      const key = url.searchParams.get('key')!;
-      const value = await env.SESSION_KV.get(key);
-      return json({ value });
-    }
+    // `/api/kv/*` test endpoints removed alongside the SESSION_KV binding.
+    // JWT revocation now lives in the auth D1 (`env.AUTH_DB`) and is exercised
+    // via the session-revocation unit tests, not these miniflare helpers.
 
     return new Response('not found', { status: 404 });
   },

@@ -125,18 +125,39 @@ export function readSessionToken(cookieString: string | null): string | null {
 }
 
 /**
- * Revoke a JWT before its natural expiration by storing its hash in KV.
- * Useful for /auth/logout — though the auth-api session lives longer, so
- * the user would also need to sign out there for a complete logout.
+ * Revoke a JWT before its natural expiration by recording its hash in the
+ * shared `revoked_sessions` table on the auth D1 (APAC). Useful for
+ * /auth/logout — though the auth-api session lives longer, so the user
+ * would also need to sign out there for a complete logout. The previous
+ * Workers KV-backed implementation moved here so that:
+ *   - storage lives next to auth itself (no cross-continent hop on the
+ *     hot-path read in verifySessionToken),
+ *   - the deploy token no longer needs KV:Edit,
+ *   - a single row reflects the suite-wide ban; every web worker queries
+ *     the same table.
  */
 export async function revokeSession(env: Env, token: string): Promise<void> {
   const key = await tokenKey(token);
-  await env.SESSION_KV.put(key, '1', { expirationTtl: SESSION_MAX_AGE_SECONDS });
+  await env.AUTH_DB.prepare(
+    `INSERT INTO revoked_sessions(key, expires_at)
+       VALUES (?, unixepoch() + ?)
+       ON CONFLICT(key) DO UPDATE SET expires_at = excluded.expires_at`,
+  )
+    .bind(key, SESSION_MAX_AGE_SECONDS)
+    .run();
 }
 
 async function isRevoked(env: Env, token: string): Promise<boolean> {
   const key = await tokenKey(token);
-  return (await env.SESSION_KV.get(key)) !== null;
+  // `WHERE expires_at > unixepoch()` ignores rows that would already have
+  // aged out, so an unvacuumed expired row doesn't keep a JWT blocked past
+  // its natural exp.
+  const row = await env.AUTH_DB.prepare(
+    `SELECT 1 FROM revoked_sessions WHERE key = ? AND expires_at > unixepoch() LIMIT 1`,
+  )
+    .bind(key)
+    .first();
+  return row !== null;
 }
 
 async function tokenKey(token: string): Promise<string> {
