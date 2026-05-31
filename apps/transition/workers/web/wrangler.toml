@@ -20,9 +20,15 @@ custom_domain = true
 binding = "HYPERDRIVE"
 id = "0b76cf08a44443d39d12f0d51ed059f5"
 
-[[kv_namespaces]]
-binding = "SESSION_KV"
-id = "96408ec81e754c36b4ae3643cf2afd80"
+# JWT revocation list — moved off Workers KV to the auth D1 in APAC.
+# The shared `revoked_sessions` table (apps/auth/migrations-d1/0007_revoked_sessions.sql)
+# is bound here as AUTH_DB so verifySessionToken's revocation check sits
+# next to auth itself instead of crossing the continent twice per request.
+# Bonus: deploy tokens no longer need KV:Edit scope.
+[[d1_databases]]
+binding = "AUTH_DB"
+database_name = "allenlabs-auth-d1"
+database_id = "a1ac75db-4a03-4312-98d9-04cee356d0ed"
 
 [vars]
 APP_NAME = "Transition"

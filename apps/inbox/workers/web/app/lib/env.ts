@@ -5,7 +5,12 @@
 
 export interface Env {
   HYPERDRIVE: Hyperdrive;
-  SESSION_KV: KVNamespace;
+  // Suite-wide JWT revocation list lives in the auth D1 (allenlabs-auth-d1,
+  // APAC). Each web worker binds it read+write; the `revoked_sessions` table
+  // (apps/auth/migrations-d1/0007_revoked_sessions.sql) is shared across the
+  // whole suite so a logout on one app blocks the JWT everywhere. Replaces
+  // the per-app SESSION_KV namespaces that lived in Workers KV.
+  AUTH_DB: D1Database;
   ASSETS: Fetcher;
 
   // vars (from wrangler.toml [vars])

@@ -1,7 +1,4 @@
-// Cloudflare bindings + env vars/secrets for the nudge web worker.
-
 export interface Env {
-  HYPERDRIVE: Hyperdrive;
   // Suite-wide JWT revocation list lives in the auth D1 (allenlabs-auth-d1,
   // APAC). Each web worker binds it read+write; the `revoked_sessions` table
   // (apps/auth/migrations-d1/0007_revoked_sessions.sql) is shared across the

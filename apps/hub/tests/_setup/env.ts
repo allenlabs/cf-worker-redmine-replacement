@@ -51,10 +51,9 @@ export function makeMemoryKV(): D1Database {
 
 export function makeTestEnv(overrides: Partial<Env> = {}): Env {
   return {
-    HYPERDRIVE: {} as unknown as Hyperdrive,
     AUTH_DB: makeMemoryAuthDb(),
     ASSETS: {} as Fetcher,
-    APP_NAME: 'Nudge (test)',
+    APP_NAME: 'Hub (test)',
     AUTH_WEB_URL: 'https://auth.test',
     AUTH_API_URL: 'https://auth-api.test',
     PUBLIC_BASE_URL: 'http://localhost:3000',
